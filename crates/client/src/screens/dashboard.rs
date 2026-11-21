@@ -3,18 +3,19 @@ use gpui_kit::{
     App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
 };
 
-/// Placeholder for the sign-in step (`Screen::Auth`).
-pub struct LoginScreen;
+/// Placeholder for the main app (`Screen::Dashboard`).
+/// Will own `Route` and the sidebar later.
+pub struct DashboardScreen;
 
-impl LoginScreen {
+impl DashboardScreen {
     pub fn build_view(cx: &mut App) -> Entity<Self> {
         cx.new(|_| Self)
     }
 }
 
-impl Render for LoginScreen {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = *cx.global::<Theme>();
+impl Render for DashboardScreen {
+    fn render(&mut self, _window: &mut Window, cx_self: &mut Context<Self>) -> impl IntoElement {
+        let theme = *cx_self.global::<Theme>();
 
         div()
             .size_full()
@@ -23,6 +24,6 @@ impl Render for LoginScreen {
             .justify_center()
             .bg(theme.bg_app)
             .text_color(theme.text_muted)
-            .child("Auth Screen")
+            .child("Dashboard Screen")
     }
 }

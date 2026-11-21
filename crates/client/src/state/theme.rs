@@ -148,7 +148,7 @@ impl Theme {
 
             // Borders, inputs, focus
             k.border = t.border.into();
-            k.input = t.border.into();
+            k.input = t.border_strong.into();
             k.ring = t.focus_ring.into();
             k.caret = t.accent.into();
             k.selection = t.text_selection.into();
@@ -216,7 +216,7 @@ impl Theme {
     pub fn dark() -> Self {
         // Single source of truth: derived colors below reuse these.
         let accent = hex(0x8db09c);
-        let success = hex(0x7db38a);
+        let success = hex(0x86c27a);
         let warning = hex(0xd4b26a);
         let error = hex(0xd9776f);
         let info = hex(0x7fa3c4);
@@ -226,26 +226,26 @@ impl Theme {
         Self {
             is_dark: true,
 
-            bg_app: hex(0x0b0c0c),
-            bg_sunken: hex(0x090a0a),
-            bg_panel: hex(0x101211),
-            bg_surface: hex(0x141716),
-            bg_overlay: hex(0x1a1d1c),
-            bg_hover: hex(0x1f2322),
-            bg_active: alpha(accent, 0.10),
+            bg_app: hex(0x0e100f),
+            bg_sunken: hex(0x0a0b0b),
+            bg_panel: hex(0x121413),
+            bg_surface: hex(0x171a19),
+            bg_overlay: hex(0x1d2120),
+            bg_hover: hex(0x232726),
+            bg_active: hex(0x2a2f2d),
             bg_selected: alpha(accent, 0.16),
             bg_disabled: alpha(white, 0.03),
             bg_scrim: alpha(black, 0.60),
 
-            border: hex(0x202322),
-            border_subtle: hex(0x171a19),
-            border_strong: hex(0x2e3331),
+            border: hex(0x272b2a),
+            border_subtle: hex(0x1f2322),
+            border_strong: hex(0x4a504d),
             border_focused: accent,
-            focus_ring: alpha(accent, 0.30),
+            focus_ring: alpha(accent, 0.35),
 
-            text_main: hex(0xe4e7e5),
-            text_muted: hex(0x8e9591),
-            text_disabled: hex(0x5a605d),
+            text_main: hex(0xe6e9e7),
+            text_muted: hex(0x969d99),
+            text_disabled: hex(0x5f6662),
             text_on_accent: hex(0x0b1410),
             text_link: hex(0xa3c2b0),
             text_selection: alpha(accent, 0.25),
@@ -285,7 +285,7 @@ impl Theme {
     /// and a dark forest-sage accent so it holds contrast on pale surfaces.
     pub fn light() -> Self {
         let accent = hex(0x2f5e4a);
-        let success = hex(0x3d7a4f);
+        let success = hex(0x4a7f2f);
         let warning = hex(0x9a7426);
         let error = hex(0xb0463c);
         let info = hex(0x3b6a93);
@@ -294,27 +294,27 @@ impl Theme {
         Self {
             is_dark: false,
 
-            bg_app: hex(0xf5f6f4),
-            bg_sunken: hex(0xeceeeb),
-            bg_panel: hex(0xf0f2ef),
-            bg_surface: hex(0xfbfcfb),
+            bg_app: hex(0xf7f8f6),
+            bg_sunken: hex(0xeef0ed),
+            bg_panel: hex(0xf2f4f1),
+            bg_surface: hex(0xfdfdfc),
             bg_overlay: hex(0xffffff),
-            bg_hover: hex(0xe7eae6),
-            bg_active: alpha(accent, 0.07),
+            bg_hover: hex(0xeaedea),
+            bg_active: hex(0xe1e5e1),
             bg_selected: alpha(accent, 0.12),
             bg_disabled: alpha(black, 0.03),
             bg_scrim: alpha(black, 0.30),
 
-            border: hex(0xdfe2de),
-            border_subtle: hex(0xe9ece8),
-            border_strong: hex(0xcdd2ce),
+            border: hex(0xd9ded9),
+            border_subtle: hex(0xe6e9e5),
+            border_strong: hex(0xa9b1ab),
             border_focused: accent,
             focus_ring: alpha(accent, 0.25),
 
-            text_main: hex(0x151816),
-            text_muted: hex(0x646b67),
-            text_disabled: hex(0xa0a6a2),
-            text_on_accent: hex(0xf5f6f4),
+            text_main: hex(0x141715),
+            text_muted: hex(0x5c635f),
+            text_disabled: hex(0x9ea4a0),
+            text_on_accent: hex(0xf7f8f6),
             text_link: accent,
             text_selection: alpha(accent, 0.18),
 
@@ -334,9 +334,9 @@ impl Theme {
 
             grad_start: hex(0x4a7a63),
             grad_end: accent,
-            text_on_gradient: hex(0xf5f6f4),
+            text_on_gradient: hex(0xf7f8f6),
 
-            shadow: alpha(black, 0.10),
+            shadow: alpha(black, 0.08),
             scrollbar_thumb: alpha(black, 0.14),
             scrollbar_thumb_hover: alpha(black, 0.26),
 

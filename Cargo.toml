@@ -1,20 +1,20 @@
-[package]
-name = "scanfill"
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+default-members = ["crates/client"]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
 
-[dependencies]
-gpui-kit = { version = "0.8.1", features = ["gpui-fast"] }
-surrealdb = { version = "4.0.0", default-features = false, features = ["kv-surrealkv"] }
-directories = "6.0.0"
-tokio = { version = "1.54.1", default-features = false, features=["rt-multi-thread", "time"]}
+[workspace.dependencies]
+shared = { path = "crates/shared" }
+surrealdb = { version = "4.0.0", default-features = false }
+tokio = { version = "1.54.1", default-features = false, features = ["rt-multi-thread", "time"] }
+thiserror = "2.0.21"
 
 [profile.dev]
-# Reduces debug info from level 2 to level 1.
-# Keeps file/line numbers in stack traces, but stops MSVC from building multi-gigabyte PDB files.
 debug = 1
 
-# Compiles heavy third-party dependencies (GPUI, SurrealDB, Tokio) with full optimizations once.
-# Your own crate compiles at level 0 instantly.
 [profile.dev.package."*"]
 opt-level = 3

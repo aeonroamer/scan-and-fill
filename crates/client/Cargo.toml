@@ -1,0 +1,11 @@
+[package]
+name = "scanfill"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+shared = { workspace = true }
+gpui-kit = { version = "0.8.1", features = ["gpui-fast"] }
+surrealdb = { workspace = true, features = ["kv-surrealkv"] }
+tokio = { workspace = true }
+directories = "6.0.0"

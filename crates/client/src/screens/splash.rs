@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::state::Theme;
-use gpui_kit::component::{Sizable, button::Button, spinner::Spinner};
+use gpui_kit::component::{Sizable, button::Button};
 use gpui_kit::{
     Animation, AnimationExt, App, AppContext, Context, Entity, EventEmitter, FontWeight,
     IntoElement, ParentElement, Render, SharedString, Styled, Window, div, ease_in_out, px,
@@ -9,11 +9,17 @@ use gpui_kit::{
 
 const APP_NAME: &str = "Scan & Fill";
 const TAGLINE: &str = "Scan the barcode. The form fills itself.";
+const STATUS: &str = "Getting your workspace ready…";
 const COMPANY: &str = "Aeon Logics";
+const VERSION: &str = concat!("v", env!("CARGO_PKG_VERSION"));
 
-const TITLE_SIZE: f32 = 64.0;
-const SLOT_H: f32 = 96.0;
+const TITLE_SIZE: f32 = 56.0;
+const SLOT_H: f32 = 88.0;
 const FADE_MS: u64 = 700;
+
+const TRACK_W: f32 = 160.0;
+const BEAM_W: f32 = 48.0;
+const BEAM_MS: u64 = 1400;
 
 pub enum SplashEvent {
     Retry,
@@ -22,18 +28,6 @@ pub enum SplashEvent {
 pub struct SplashScreen {
     error: Option<SharedString>,
 }
-
-pub trait SplashExt {
-    fn set_error<C: AppContext>(&self, cx: &mut C, msg: impl Into<SharedString>);
-}
-
-impl SplashExt for Entity<SplashScreen> {
-    fn set_error<C: AppContext>(&self, cx: &mut C, msg: impl Into<SharedString>) {
-        let msg = msg.into();
-        let _ = self.update(cx, |s, cx| s.set_error(msg, cx));
-    }
-}
-
 impl EventEmitter<SplashEvent> for SplashScreen {}
 
 impl SplashScreen {
@@ -45,16 +39,20 @@ impl SplashScreen {
         cx.new(|_| Self::new())
     }
 
-    pub fn set_error(&mut self, error: impl Into<SharedString>, cx: &mut Context<Self>) {
+    pub fn set_error(&mut self, error: impl Into<SharedString>) {
         self.error = Some(error.into());
-        cx.notify();
     }
 }
 
 impl Render for SplashScreen {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = *cx.global::<Theme>();
-        let me = cx.entity().downgrade();
+    fn render(&mut self, _window: &mut Window, cx_self: &mut Context<Self>) -> impl IntoElement {
+        let theme = *cx_self.global::<Theme>();
+
+        let retry_event = cx_self.listener(|this, _, _, cx_self| {
+            this.error = None;
+            cx_self.emit(SplashEvent::Retry);
+            cx_self.notify();
+        });
 
         let slot = match &self.error {
             Some(error) => div()
@@ -65,7 +63,7 @@ impl Render for SplashScreen {
                 .child(
                     div()
                         .max_w(px(420.))
-                        .text_sm()
+                        .text_size(px(13.))
                         .text_center()
                         .text_color(theme.error)
                         .child(error.clone()),
@@ -75,13 +73,7 @@ impl Render for SplashScreen {
                         .label("Try again")
                         .outline()
                         .small()
-                        .on_click(move |_, _, cx| {
-                            let _ = me.update(cx, |this, cx| {
-                                this.error = None;
-                                cx.emit(SplashEvent::Retry);
-                                cx.notify();
-                            });
-                        }),
+                        .on_click(retry_event),
                 )
                 .with_animation(
                     "splash-error",
@@ -89,9 +81,42 @@ impl Render for SplashScreen {
                     |el, delta| el.opacity(delta),
                 )
                 .into_any_element(),
-            None => Spinner::new()
-                .small()
-                .color(theme.text_muted.into())
+            None => div()
+                .flex()
+                .flex_col()
+                .items_center()
+                .gap(px(16.))
+                .child(
+                    div()
+                        .relative()
+                        .w(px(TRACK_W))
+                        .h(px(2.))
+                        .rounded_full()
+                        .overflow_hidden()
+                        .bg(theme.border)
+                        .child(
+                            div()
+                                .absolute()
+                                .top_0()
+                                .h_full()
+                                .w(px(BEAM_W))
+                                .rounded_full()
+                                .bg(theme.accent)
+                                .with_animation(
+                                    "splash-beam",
+                                    Animation::new(Duration::from_millis(BEAM_MS))
+                                        .repeat()
+                                        .with_easing(ease_in_out),
+                                    |el, delta| el.left(px(-BEAM_W + delta * (TRACK_W + BEAM_W))),
+                                ),
+                        ),
+                )
+                .child(
+                    div()
+                        .text_size(px(13.))
+                        .text_color(theme.text_muted)
+                        .child(STATUS),
+                )
                 .into_any_element(),
         };
 
@@ -118,13 +143,13 @@ impl Render for SplashScreen {
                     .child(
                         div()
                             .mt(px(12.))
-                            .text_base()
+                            .text_size(px(15.))
                             .text_color(theme.text_muted)
                             .child(TAGLINE),
                     )
                     .child(
                         div()
-                            .mt(px(56.))
+                            .mt(px(48.))
                             .h(px(SLOT_H))
                             .flex()
                             .items_start()
@@ -140,9 +165,13 @@ impl Render for SplashScreen {
             .child(
                 div()
                     .pb(px(32.))
-                    .text_sm()
+                    .flex()
+                    .gap(px(8.))
+                    .text_size(px(12.))
                     .text_color(theme.text_muted)
-                    .child(COMPANY),
+                    .child(COMPANY)
+                    .child("·")
+                    .child(VERSION),
             )
     }
 }

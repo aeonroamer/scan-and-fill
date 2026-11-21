@@ -1,0 +1,10 @@
+[package]
+name = "scanfill-server"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+shared = { workspace = true }
+axum = "0.8.9"
+surrealdb = { workspace = true, features = ["protocol-ws", "rustls"] }
+tokio = { workspace = true, features = ["macros", "net"] }
