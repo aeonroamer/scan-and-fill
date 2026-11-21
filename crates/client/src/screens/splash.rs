@@ -14,7 +14,7 @@ const COMPANY: &str = "Aeon Logics";
 const VERSION: &str = concat!("v", env!("CARGO_PKG_VERSION"));
 
 const TITLE_SIZE: f32 = 56.0;
-const SLOT_H: f32 = 88.0;
+const SLOT_H: f32 = 120.0;
 const FADE_MS: u64 = 700;
 
 const TRACK_W: f32 = 160.0;
@@ -27,12 +27,16 @@ pub enum SplashEvent {
 
 pub struct SplashScreen {
     error: Option<SharedString>,
+    detail: Option<SharedString>,
 }
 impl EventEmitter<SplashEvent> for SplashScreen {}
 
 impl SplashScreen {
     pub fn new() -> Self {
-        Self { error: None }
+        Self {
+            error: None,
+            detail: None,
+        }
     }
 
     pub fn build_view(cx: &mut App) -> Entity<Self> {
@@ -42,6 +46,10 @@ impl SplashScreen {
     pub fn set_error(&mut self, error: impl Into<SharedString>) {
         self.error = Some(error.into());
     }
+
+    pub fn set_detail(&mut self, detail: impl Into<SharedString>) {
+        self.detail = Some(detail.into());
+    }
 }
 
 impl Render for SplashScreen {
@@ -50,6 +58,7 @@ impl Render for SplashScreen {
 
         let retry_event = cx_self.listener(|this, _, _, cx_self| {
             this.error = None;
+            this.detail = None;
             cx_self.emit(SplashEvent::Retry);
             cx_self.notify();
         });
@@ -63,10 +72,23 @@ impl Render for SplashScreen {
                 .child(
                     div()
                         .max_w(px(420.))
-                        .text_size(px(13.))
+                        .flex()
+                        .flex_col()
+                        .items_center()
+                        .gap(px(4.))
                         .text_center()
-                        .text_color(theme.error)
-                        .child(error.clone()),
+                        .child(
+                            div()
+                                .text_size(px(13.))
+                                .text_color(theme.error)
+                                .child(error.clone()),
+                        )
+                        .children(self.detail.clone().map(|detail| {
+                            div()
+                                .text_size(px(12.))
+                                .text_color(theme.text_muted)
+                                .child(detail)
+                        })),
                 )
                 .child(
                     Button::new("splash-retry")

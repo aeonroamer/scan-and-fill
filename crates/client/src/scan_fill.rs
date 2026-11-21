@@ -12,6 +12,7 @@ use gpui_kit::{
 use shared::DbError;
 
 const SPLASH_MIN: Duration = Duration::from_secs(10);
+const BOOT_FAILED: &str = "Something went wrong. Try again.";
 
 #[derive(Debug, Clone)]
 pub struct ScanFill {
@@ -62,7 +63,7 @@ impl ScanFill {
                 let timer = cx.background_executor().timer(SPLASH_MIN);
                 let result = job.await;
 
-                let message = match result {
+                let detail = match result {
                     Ok(Ok((db, token))) => {
                         timer.await;
                         let _ = this.update(cx, |this, cx_self| {
@@ -76,16 +77,17 @@ impl ScanFill {
                     }
                     Ok(Err(e)) => {
                         eprintln!("[db] {e}");
-                        boot_message(&e)
+                        e.to_string()
                     }
                     Err(e) => {
                         eprintln!("[boot] background task failed: {e}");
-                        "Couldn't start Scan & Fill."
+                        e.to_string()
                     }
                 };
 
                 let _ = splash.update(cx, |splash, cx_self| {
-                    splash.set_error(message);
+                    splash.set_error(BOOT_FAILED);
+                    splash.set_detail(detail);
                     cx_self.notify();
                 });
             })
@@ -125,12 +127,3 @@ impl Render for ScanFill {
     }
 }
 
-fn boot_message(e: &DbError) -> &'static str {
-    match e {
-        DbError::NoHome => "Couldn't find a folder to save your bills.",
-        DbError::Open(_) => "Couldn't open your bills. Restart Scan & Fill to try again.",
-        DbError::Namespace(_) => {
-            "Couldn't prepare your workspace. Restart Scan & Fill to try again."
-        }
-    }
-}
