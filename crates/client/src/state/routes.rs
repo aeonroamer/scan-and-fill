@@ -1,17 +1,15 @@
-use crate::screens::{DashboardScreen, LoginScreen, SplashScreen};
+use crate::screens::{DashboardScreen, SplashScreen};
 use gpui_kit::{AnyElement, Entity, IntoElement, component::IconName};
 
 #[derive(Debug, Clone)]
 pub enum Screen {
     Splash(Entity<SplashScreen>),
-    Auth(Entity<LoginScreen>),
     Dashboard(Entity<DashboardScreen>),
 }
 
 impl Screen {
     pub fn element(&self) -> AnyElement {
         match self {
-            Self::Auth(s) => s.clone().into_any_element(),
             Self::Splash(s) => s.clone().into_any_element(),
             Self::Dashboard(s) => s.clone().into_any_element(),
         }
