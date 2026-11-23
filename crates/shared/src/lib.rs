@@ -1,7 +1,7 @@
-mod bill;
-mod catalog;
+mod bills;
 mod db;
+mod software;
 
-pub use bill::*;
-pub use catalog::*;
+pub use bills::*;
 pub use db::*;
+pub use software::*;

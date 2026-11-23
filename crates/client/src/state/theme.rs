@@ -215,48 +215,45 @@ impl Theme {
         )
     }
 
-    /// "Ink and sage": near-black ink with a faint green-grey tint, ivory-grey
-    /// text, and one quiet sage accent. Keep the accent rare: rules, dots, focus.
     pub fn dark() -> Self {
-        // Single source of truth: derived colors below reuse these.
-        let accent = hex(0x8db09c);
-        let success = hex(0x86c27a);
-        let warning = hex(0xd4b26a);
-        let error = hex(0xd9776f);
-        let info = hex(0x7fa3c4);
+        let accent = hex(0xa78bfa);
+        let success = hex(0x6fcf8f);
+        let warning = hex(0xe0b45c);
+        let error = hex(0xf08a80);
+        let info = hex(0x7cb7ff);
         let white = hex(0xffffff);
         let black = hex(0x000000);
 
         Self {
             is_dark: true,
 
-            bg_app: hex(0x0e100f),
-            bg_sunken: hex(0x0a0b0b),
-            bg_panel: hex(0x121413),
-            bg_surface: hex(0x171a19),
-            bg_overlay: hex(0x1d2120),
-            bg_hover: hex(0x232726),
-            bg_active: hex(0x2a2f2d),
+            bg_app: hex(0x1a1820),
+            bg_sunken: hex(0x15131a),
+            bg_panel: hex(0x1d1b24),
+            bg_surface: hex(0x22202a),
+            bg_overlay: hex(0x292631),
+            bg_hover: hex(0x2c2935),
+            bg_active: hex(0x34313e),
             bg_selected: alpha(accent, 0.16),
             bg_disabled: alpha(white, 0.03),
             bg_scrim: alpha(black, 0.60),
 
-            border: hex(0x272b2a),
-            border_subtle: hex(0x1f2322),
-            border_strong: hex(0x4a504d),
+            border: hex(0x302d3a),
+            border_subtle: hex(0x2a2733),
+            border_strong: hex(0x5a546a),
             border_focused: accent,
             focus_ring: alpha(accent, 0.35),
 
-            text_main: hex(0xe6e9e7),
-            text_muted: hex(0x969d99),
-            text_disabled: hex(0x5f6662),
-            text_on_accent: hex(0x0b1410),
-            text_link: hex(0xa3c2b0),
-            text_selection: alpha(accent, 0.25),
+            text_main: hex(0xece9f3),
+            text_muted: hex(0xa59fb5),
+            text_disabled: hex(0x6b6578),
+            text_on_accent: hex(0x1a1033),
+            text_link: hex(0xb9a2fc),
+            text_selection: alpha(accent, 0.28),
 
             accent,
-            accent_hover: hex(0xa3c2b0),
-            accent_active: hex(0x769a86),
+            accent_hover: hex(0xb9a2fc),
+            accent_active: hex(0x9370f0),
             accent_subtle: alpha(accent, 0.10),
 
             success,
@@ -268,63 +265,61 @@ impl Theme {
             info,
             info_subtle: alpha(info, 0.12),
 
-            grad_start: hex(0x9dbba9),
-            grad_end: hex(0x5e8a73),
-            text_on_gradient: hex(0x0b1410),
+            grad_start: hex(0xb9a2fc),
+            grad_end: hex(0x7c4dd6),
+            text_on_gradient: hex(0x1a1033),
 
-            shadow: alpha(black, 0.55),
+            shadow: alpha(black, 0.45),
             scrollbar_thumb: alpha(white, 0.10),
             scrollbar_thumb_hover: alpha(white, 0.20),
 
-            cyan: hex(0x7fb5b8),
+            cyan: hex(0x67e8f9),
             green: success,
-            orange: hex(0xd49a6a),
-            purple: hex(0xa79bc9),
+            orange: hex(0xff9e64),
+            purple: accent,
             red: error,
             blue: info,
         }
     }
 
-    /// Light counterpart: paper with a faint green-grey tint, deep ink text,
-    /// and a dark forest-sage accent so it holds contrast on pale surfaces.
     pub fn light() -> Self {
-        let accent = hex(0x2f5e4a);
-        let success = hex(0x4a7f2f);
-        let warning = hex(0x9a7426);
-        let error = hex(0xb0463c);
-        let info = hex(0x3b6a93);
+        let accent = hex(0x5b2bb0);
+        let success = hex(0x2e7d4f);
+        let warning = hex(0x94650f);
+        let error = hex(0xb42318);
+        let info = hex(0x2563eb);
         let black = hex(0x000000);
 
         Self {
             is_dark: false,
 
-            bg_app: hex(0xf7f8f6),
-            bg_sunken: hex(0xeef0ed),
-            bg_panel: hex(0xf2f4f1),
-            bg_surface: hex(0xfdfdfc),
+            bg_app: hex(0xffffff),
+            bg_sunken: hex(0xf6f5f9),
+            bg_panel: hex(0xf8f7fb),
+            bg_surface: hex(0xffffff),
             bg_overlay: hex(0xffffff),
-            bg_hover: hex(0xeaedea),
-            bg_active: hex(0xe1e5e1),
-            bg_selected: alpha(accent, 0.12),
+            bg_hover: hex(0xf2f0f7),
+            bg_active: hex(0xe9e6f1),
+            bg_selected: alpha(accent, 0.10),
             bg_disabled: alpha(black, 0.03),
             bg_scrim: alpha(black, 0.30),
 
-            border: hex(0xd9ded9),
-            border_subtle: hex(0xe6e9e5),
-            border_strong: hex(0xa9b1ab),
+            border: hex(0xe6e3ee),
+            border_subtle: hex(0xefedf4),
+            border_strong: hex(0xb4adc4),
             border_focused: accent,
             focus_ring: alpha(accent, 0.25),
 
-            text_main: hex(0x141715),
-            text_muted: hex(0x5c635f),
-            text_disabled: hex(0x9ea4a0),
-            text_on_accent: hex(0xf7f8f6),
+            text_main: hex(0x1b1530),
+            text_muted: hex(0x5e5873),
+            text_disabled: hex(0xa8a3b6),
+            text_on_accent: hex(0xffffff),
             text_link: accent,
-            text_selection: alpha(accent, 0.18),
+            text_selection: alpha(accent, 0.16),
 
             accent,
-            accent_hover: hex(0x284f3f),
-            accent_active: hex(0x1f4033),
+            accent_hover: hex(0x4c2296),
+            accent_active: hex(0x3f1c7e),
             accent_subtle: alpha(accent, 0.07),
 
             success,
@@ -332,22 +327,22 @@ impl Theme {
             warning,
             warning_subtle: alpha(warning, 0.12),
             error,
-            error_subtle: alpha(error, 0.10),
+            error_subtle: alpha(error, 0.08),
             info,
-            info_subtle: alpha(info, 0.10),
+            info_subtle: alpha(info, 0.08),
 
-            grad_start: hex(0x4a7a63),
+            grad_start: hex(0x7c4dd6),
             grad_end: accent,
-            text_on_gradient: hex(0xf7f8f6),
+            text_on_gradient: hex(0xffffff),
 
             shadow: alpha(black, 0.08),
             scrollbar_thumb: alpha(black, 0.14),
             scrollbar_thumb_hover: alpha(black, 0.26),
 
-            cyan: hex(0x2f7478),
+            cyan: hex(0x0e7490),
             green: success,
-            orange: hex(0xa8622e),
-            purple: hex(0x6a5a9a),
+            orange: hex(0xc2410c),
+            purple: accent,
             red: error,
             blue: info,
         }

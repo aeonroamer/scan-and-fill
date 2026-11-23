@@ -6,14 +6,15 @@ use gpui_kit::component::{
     button::{Button, ButtonVariants},
 };
 use gpui_kit::{
-    Animation, AnimationExt, AnyElement, App, AppContext, Context, Div, Entity,
-    IntoElement, ParentElement, Render, Rgba, SharedString, Styled, Window, div, ease_in_out,
-    pulsating_between, px, relative,
+    Animation, AnimationExt, AnyElement, App, AppContext, ClickEvent, Context, Div, Entity,
+    FontWeight, InteractiveElement, IntoElement, ParentElement, Render, Rgba, SharedString,
+    Stateful, StatefulInteractiveElement, Styled, Window, div, ease_in_out, pulsating_between, px,
+    relative,
 };
 use gpui_kit::prelude::FluentBuilder;
-use shared::Bill;
+use shared::{Bill, BillFormat, Software, SoftwareKind};
 
-const TARGET: &str = "NADRA";
+const NO_SOFTWARE: &str = "your portal";
 
 const PULSE_MS: u64 = 1600;
 const SWEEP_MS: u64 = 1800;
@@ -38,16 +39,28 @@ pub struct SingleBillPage {
     scanned: u32,
     typed: u32,
     rejected: u32,
+    softwares: Vec<Software>,
+    formats: Vec<BillFormat>,
+    software: Option<SharedString>,
+    format: Option<SharedString>,
 }
 
 impl SingleBillPage {
     pub fn build_view(cx: &mut App) -> Entity<Self> {
-        cx.new(|_| Self {
-            scanning: false,
-            last: None,
-            scanned: 0,
-            typed: 0,
-            rejected: 0,
+        cx.new(|_| {
+            let softwares = Software::all();
+            let formats = BillFormat::all();
+            Self {
+                scanning: false,
+                last: None,
+                scanned: 0,
+                typed: 0,
+                rejected: 0,
+                software: softwares.first().map(|software| software.id.clone()),
+                format: formats.first().map(|format| format.id.clone()),
+                softwares,
+                formats,
+            }
         })
     }
 
@@ -56,11 +69,83 @@ impl SingleBillPage {
         cx_self.notify();
     }
 
+    fn select_software(&mut self, id: SharedString, cx_self: &mut Context<Self>) {
+        if self.software.as_ref() != Some(&id) {
+            self.software = Some(id);
+            cx_self.notify();
+        }
+    }
+
+    fn select_format(&mut self, id: SharedString, cx_self: &mut Context<Self>) {
+        if self.format.as_ref() != Some(&id) {
+            self.format = Some(id);
+            cx_self.notify();
+        }
+    }
+
+    fn software_label(&self) -> SharedString {
+        self.softwares
+            .iter()
+            .find(|software| Some(&software.id) == self.software.as_ref())
+            .map(|software| software.label.clone())
+            .unwrap_or_else(|| NO_SOFTWARE.into())
+    }
+
+    fn software_picker(&self, theme: &Theme, cx_self: &mut Context<Self>) -> Div {
+        let rows: Vec<_> = self
+            .softwares
+            .iter()
+            .map(|software| {
+                let id = software.id.clone();
+                let subtitle: SharedString = match software.kind {
+                    SoftwareKind::Desktop => match software.window.process.first() {
+                        Some(exe) => format!("Desktop app · {exe}").into(),
+                        None => "Desktop app".into(),
+                    },
+                    SoftwareKind::Web => "Web portal".into(),
+                };
+                pick_row(
+                    format!("software-{}", software.id).into(),
+                    software.label.clone(),
+                    subtitle,
+                    self.software.as_ref() == Some(&software.id),
+                    theme,
+                    cx_self.listener(move |this, _, _, cx_self| {
+                        this.select_software(id.clone(), cx_self)
+                    }),
+                )
+            })
+            .collect();
+        picker_card(theme).children(rows)
+    }
+
+    fn format_picker(&self, theme: &Theme, cx_self: &mut Context<Self>) -> Div {
+        let rows: Vec<_> = self
+            .formats
+            .iter()
+            .map(|format| {
+                let id = format.id.clone();
+                pick_row(
+                    format!("format-{}", format.id).into(),
+                    format.label.clone(),
+                    format!("{}-digit barcode", format.length).into(),
+                    self.format.as_ref() == Some(&format.id),
+                    theme,
+                    cx_self.listener(move |this, _, _, cx_self| {
+                        this.select_format(id.clone(), cx_self)
+                    }),
+                )
+            })
+            .collect();
+        picker_card(theme).children(rows)
+    }
+
     fn stage(&self, theme: &Theme, cx_self: &mut Context<Self>) -> Div {
+        let target = self.software_label();
         let (title, helper) = if self.scanning {
             (
                 "Listening for barcodes",
-                format!("Each bill is typed into {TARGET} as soon as it's scanned."),
+                format!("Each bill is typed into {target} as soon as it's scanned."),
             )
         } else {
             (
@@ -128,7 +213,7 @@ impl SingleBillPage {
                     .bg(theme.bg_panel)
                     .text_size(px(12.))
                     .text_color(theme.text_muted)
-                    .child(format!("Types into {TARGET}")),
+                    .child(format!("Types into {target}")),
             )
     }
 
@@ -179,7 +264,7 @@ impl SingleBillPage {
                         div()
                             .text_size(px(13.))
                             .text_color(theme.text_muted)
-                            .child(bill.kind.label()),
+                            .child(bill.label.clone()),
                     )
                     .child(
                         div()
@@ -312,6 +397,58 @@ fn card(theme: &Theme) -> Div {
         .bg(theme.bg_surface)
 }
 
+fn picker_card(theme: &Theme) -> Div {
+    card(theme).p(px(6.)).flex().flex_col().gap(px(2.))
+}
+
+fn pick_row(
+    id: SharedString,
+    title: SharedString,
+    subtitle: SharedString,
+    selected: bool,
+    theme: &Theme,
+    on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+) -> Stateful<Div> {
+    let hover_bg = theme.bg_hover;
+
+    div()
+        .id(id)
+        .px(px(10.))
+        .py(px(8.))
+        .rounded(px(6.))
+        .cursor_pointer()
+        .flex()
+        .items_center()
+        .gap(px(12.))
+        .when(selected, |el| el.bg(theme.bg_selected))
+        .when(!selected, |el| el.hover(move |s| s.bg(hover_bg)))
+        .child(
+            div()
+                .flex_1()
+                .min_w_0()
+                .flex()
+                .flex_col()
+                .gap(px(2.))
+                .child(
+                    div()
+                        .text_size(px(14.))
+                        .text_color(theme.text_main)
+                        .when(selected, |el| el.font_weight(FontWeight::MEDIUM))
+                        .child(title),
+                )
+                .child(
+                    div()
+                        .text_size(px(12.))
+                        .text_color(theme.text_muted)
+                        .child(subtitle),
+                ),
+        )
+        .when(selected, |el| {
+            el.child(Icon::new(IconName::Check).small().text_color(theme.accent))
+        })
+        .on_click(on_click)
+}
+
 fn divider(theme: &Theme) -> Div {
     div().h(px(1.)).bg(theme.border_subtle)
 }
@@ -362,16 +499,27 @@ impl Render for SingleBillPage {
         let mono = cx_self.theme().mono_font_family.clone();
         let narrow = window.viewport_size().width < px(NARROW_W);
 
+        let software = section("Software", self.software_picker(&theme, cx_self), &theme);
+        let format = section("Bill type", self.format_picker(&theme, cx_self), &theme);
         let last = section("Last scanned", self.last_scanned(&theme, mono), &theme);
         let session = section("This session", self.session(&theme), &theme);
 
         let side = if narrow {
+            let pair = |a: Div, b: Div| {
+                div()
+                    .w_full()
+                    .flex()
+                    .gap(px(24.))
+                    .child(a.flex_1().min_w_0())
+                    .child(b.flex_1().min_w_0())
+            };
             div()
                 .w_full()
                 .flex()
+                .flex_col()
                 .gap(px(24.))
-                .child(last.flex_1().min_w_0())
-                .child(session.flex_1().min_w_0())
+                .child(pair(software, format))
+                .child(pair(last, session))
         } else {
             div()
                 .w(px(SIDE_W))
@@ -379,6 +527,8 @@ impl Render for SingleBillPage {
                 .flex()
                 .flex_col()
                 .gap(px(24.))
+                .child(software)
+                .child(format)
                 .child(last)
                 .child(session)
         };

@@ -4,4 +4,5 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+chrono = "0.4.45"
 gpui-pre-shared-string = "0.3.10"

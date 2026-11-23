@@ -8192,6 +8192,7 @@ dependencies = [
 name = "shared"
 version = "1.1.0"
 dependencies = [
+ "chrono",
  "gpui-pre-shared-string",
 ]
 
