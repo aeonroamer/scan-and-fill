@@ -8,7 +8,7 @@ pub struct Session {
 impl Session {
     pub async fn get_session(db: Surreal<Db>) -> Result<Option<Session>, Error> {
         let ses: Option<Session> = db.select(("app", "session")).await.map_err(|e| {
-            eprintln!("Error: {e:?} ");
+            tracing::error!("reading session failed: {e}");
             e
         })?;
         Ok(ses)

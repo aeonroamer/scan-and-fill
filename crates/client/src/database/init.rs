@@ -4,7 +4,8 @@ use surrealdb::{
     engine::local::{Db, SurrealKv},
 };
 
-use shared::{DB, DbError, NS};
+use super::DbError;
+use shared::{DB, NS};
 
 pub async fn open() -> Result<Surreal<Db>, DbError> {
     let dirs = ProjectDirs::from("dev", "AeonLogics", "ScanFill").ok_or(DbError::NoHome)?;

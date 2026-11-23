@@ -1,5 +1,5 @@
 use crate::screens::{DashboardScreen, LoginScreen, SplashScreen};
-use gpui_kit::{AnyElement, Entity, IntoElement};
+use gpui_kit::{AnyElement, Entity, IntoElement, component::IconName};
 
 #[derive(Debug, Clone)]
 pub enum Screen {
@@ -23,4 +23,38 @@ pub enum Route {
     SingleBill,
     BulkBill,
     Settings,
+}
+
+impl Route {
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::SingleBill => "nav-single-bill",
+            Self::BulkBill => "nav-bulk-bills",
+            Self::Settings => "nav-settings",
+        }
+    }
+
+    pub fn title(self) -> &'static str {
+        match self {
+            Self::SingleBill => "Single bill",
+            Self::BulkBill => "Bulk bills",
+            Self::Settings => "Settings",
+        }
+    }
+
+    pub fn description(self) -> &'static str {
+        match self {
+            Self::SingleBill => "Scan one barcode and the bill form fills itself.",
+            Self::BulkBill => "Scan a stack of bills and review them together.",
+            Self::Settings => "Your account, devices and preferences.",
+        }
+    }
+
+    pub fn icon(self) -> IconName {
+        match self {
+            Self::SingleBill => IconName::FileText,
+            Self::BulkBill => IconName::Copy,
+            Self::Settings => IconName::Settings,
+        }
+    }
 }

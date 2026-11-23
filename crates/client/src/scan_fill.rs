@@ -1,17 +1,16 @@
 use std::time::Duration;
 
 use crate::{
-    database::{self, Session},
+    database::{self, DbError, Session},
     screens::{DashboardScreen, LoginScreen, SplashEvent, SplashScreen},
     state::{Database, Io, Screen},
 };
 use gpui_kit::{
     App, AppContext, Bounds, Context, Entity, IntoElement, Render, SharedString, TitlebarOptions,
-    WindowBounds, WindowOptions, px, size,
+    Window, WindowBounds, WindowOptions, px, size,
 };
-use shared::DbError;
 
-const SPLASH_MIN: Duration = Duration::from_secs(10);
+const SPLASH_MIN: Duration = Duration::from_secs(3);
 const BOOT_FAILED: &str = "Something went wrong. Try again.";
 
 #[derive(Debug, Clone)]
@@ -37,8 +36,8 @@ impl ScanFill {
         }
     }
 
-    pub fn show_auth(&mut self, cx_self: &mut Context<Self>) {
-        self.screen = Screen::Auth(LoginScreen::build_view(cx_self));
+    pub fn show_auth(&mut self, window: &mut Window, cx_self: &mut Context<Self>) {
+        self.screen = Screen::Auth(LoginScreen::build_view(window, cx_self));
         cx_self.notify();
     }
 
@@ -47,7 +46,7 @@ impl ScanFill {
         cx_self.notify();
     }
 
-    pub fn boot(&mut self, cx_self: &mut Context<Self>) {
+    pub fn boot(&mut self, window: &mut Window, cx_self: &mut Context<Self>) {
         let Screen::Splash(splash) = self.screen.clone() else {
             return;
         };
@@ -59,28 +58,25 @@ impl ScanFill {
         });
 
         cx_self
-            .spawn(async move |this, cx| {
+            .spawn_in(window, async move |this, cx| {
                 let timer = cx.background_executor().timer(SPLASH_MIN);
                 let result = job.await;
 
                 let detail = match result {
                     Ok(Ok((db, token))) => {
                         timer.await;
-                        let _ = this.update(cx, |this, cx_self| {
+                        let _ = this.update_in(cx, |this, window, cx_self| {
                             cx_self.set_global(Database::new(db));
-                            match token {
-                                Some(_) => this.show_dashboard(cx_self),
-                                None => this.show_auth(cx_self),
-                            }
+                            this.show_dashboard(cx_self);
                         });
                         return;
                     }
                     Ok(Err(e)) => {
-                        eprintln!("[db] {e}");
+                        tracing::error!("database open failed: {e}");
                         e.to_string()
                     }
                     Err(e) => {
-                        eprintln!("[boot] background task failed: {e}");
+                        tracing::error!("boot task failed: {e}");
                         e.to_string()
                     }
                 };
@@ -94,7 +90,7 @@ impl ScanFill {
             .detach();
     }
 
-    pub fn build_view(cx: &mut App) -> Entity<Self> {
+    pub fn build_view(window: &mut Window, cx: &mut App) -> Entity<Self> {
         cx.new(|cx_self| {
             let splash = SplashScreen::build_view(cx_self);
             let handle_splash = splash.clone();
@@ -103,15 +99,16 @@ impl ScanFill {
             };
 
             cx_self
-                .subscribe(
+                .subscribe_in(
                     &handle_splash,
-                    |this: &mut ScanFill, _, event: &SplashEvent, cx_self| match event {
-                        SplashEvent::Retry => this.boot(cx_self),
+                    window,
+                    |this: &mut ScanFill, _, event: &SplashEvent, window, cx_self| match event {
+                        SplashEvent::Retry => this.boot(window, cx_self),
                     },
                 )
                 .detach();
 
-            app.boot(cx_self);
+            app.boot(window, cx_self);
             app
         })
     }
@@ -120,10 +117,9 @@ impl ScanFill {
 impl Render for ScanFill {
     fn render(
         &mut self,
-        _window: &mut gpui_kit::Window,
+        _window: &mut Window,
         _cx: &mut gpui_kit::prelude::Context<Self>,
     ) -> impl IntoElement {
         self.screen.element()
     }
 }
-

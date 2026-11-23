@@ -1,5 +1,7 @@
+mod bill;
+mod catalog;
 mod db;
-mod error;
 
+pub use bill::*;
+pub use catalog::*;
 pub use db::*;
-pub use error::*;

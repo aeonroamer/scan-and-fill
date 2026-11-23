@@ -4,5 +4,4 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-surrealdb = { workspace = true }
-thiserror = { workspace = true }
+gpui-pre-shared-string = "0.3.10"

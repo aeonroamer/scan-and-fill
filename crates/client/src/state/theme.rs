@@ -158,6 +158,10 @@ impl Theme {
             k.primary_hover = t.accent_hover.into();
             k.primary_active = t.accent_active.into();
             k.primary_foreground = t.text_on_accent.into();
+            k.button_primary = t.accent.into();
+            k.button_primary_hover = t.accent_hover.into();
+            k.button_primary_active = t.accent_active.into();
+            k.button_primary_foreground = t.text_on_accent.into();
 
             // Secondary = quiet surface buttons
             k.secondary = t.bg_surface.into();
