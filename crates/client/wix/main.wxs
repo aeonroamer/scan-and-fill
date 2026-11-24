@@ -1,0 +1,106 @@
+<?xml version='1.0' encoding='windows-1252'?>
+
+<?if $(sys.BUILDARCH) = x64 or $(sys.BUILDARCH) = arm64 ?>
+    <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
+<?else ?>
+    <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
+<?endif ?>
+
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+
+    <Product
+        Id='*'
+        Name='Scan &amp; Fill'
+        UpgradeCode='79C49943-A1D2-46DE-AA04-1DE68735CF23'
+        Manufacturer='Aeon Logics'
+        Language='1033'
+        Codepage='1252'
+        Version='$(var.Version)'>
+
+        <Package Id='*'
+            Keywords='Installer'
+            Description='Scan &amp; Fill: scan bill barcodes and type them into payment software'
+            Manufacturer='Aeon Logics'
+            InstallerVersion='450'
+            Languages='1033'
+            Compressed='yes'
+            InstallScope='perMachine'
+            SummaryCodepage='1252'
+            />
+
+        <MajorUpgrade
+            Schedule='afterInstallInitialize'
+            DowngradeErrorMessage='A newer version of [ProductName] is already installed. Setup will now exit.'/>
+
+        <Media Id='1' Cabinet='media1.cab' EmbedCab='yes' DiskPrompt='CD-ROM #1'/>
+        <Property Id='DiskPrompt' Value='Scan &amp; Fill Installation'/>
+
+        <Directory Id='TARGETDIR' Name='SourceDir'>
+            <Directory Id='$(var.PlatformProgramFilesFolder)' Name='PFiles'>
+                <Directory Id='CompanyFolder' Name='Aeon Logics'>
+                    <Directory Id='APPLICATIONFOLDER' Name='Scan &amp; Fill'>
+                        <Component Id='binary0' Guid='*'>
+                            <File
+                                Id='exe0'
+                                Name='scanfill.exe'
+                                DiskId='1'
+                                Source='$(var.CargoTargetBinDir)\scanfill.exe'
+                                KeyPath='yes'/>
+                        </Component>
+                    </Directory>
+                </Directory>
+            </Directory>
+            <Directory Id='ProgramMenuFolder'/>
+            <Directory Id='DesktopFolder'/>
+        </Directory>
+
+        <Component Id='Shortcuts' Directory='APPLICATIONFOLDER' Guid='*'>
+            <Shortcut
+                Id='StartMenuShortcut'
+                Directory='ProgramMenuFolder'
+                Name='Scan &amp; Fill'
+                Description='Scan bills and type them into payment software'
+                Target='[APPLICATIONFOLDER]scanfill.exe'
+                WorkingDirectory='APPLICATIONFOLDER'/>
+            <Shortcut
+                Id='DesktopShortcut'
+                Directory='DesktopFolder'
+                Name='Scan &amp; Fill'
+                Description='Scan bills and type them into payment software'
+                Target='[APPLICATIONFOLDER]scanfill.exe'
+                WorkingDirectory='APPLICATIONFOLDER'/>
+            <RegistryValue
+                Root='HKLM'
+                Key='Software\Aeon Logics\Scan &amp; Fill'
+                Name='installed'
+                Type='integer'
+                Value='1'
+                KeyPath='yes'/>
+        </Component>
+
+        <Feature
+            Id='Application'
+            Title='Scan &amp; Fill'
+            Level='1'
+            ConfigurableDirectory='APPLICATIONFOLDER'
+            AllowAdvertise='no'
+            Absent='disallow'>
+            <ComponentRef Id='binary0'/>
+            <ComponentRef Id='Shortcuts'/>
+        </Feature>
+
+        <SetProperty Id='ARPINSTALLLOCATION' Value='[APPLICATIONFOLDER]' After='CostFinalize'/>
+
+        <Icon Id='ProductICO' SourceFile='assets\icon.ico'/>
+        <Property Id='ARPPRODUCTICON' Value='ProductICO'/>
+
+        <Property Id='WIXUI_INSTALLDIR' Value='APPLICATIONFOLDER'/>
+        <UI>
+            <UIRef Id='WixUI_InstallDir'/>
+            <Publish Dialog='WelcomeDlg' Control='Next' Event='NewDialog' Value='InstallDirDlg' Order='2'>1</Publish>
+            <Publish Dialog='InstallDirDlg' Control='Back' Event='NewDialog' Value='WelcomeDlg' Order='2'>1</Publish>
+        </UI>
+
+    </Product>
+
+</Wix>

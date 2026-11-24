@@ -147,6 +147,25 @@ mod tests {
     }
 
     #[test]
+    fn real_electricity_barcode() {
+        let code = "E0415437415317811262611260000021300000022833011260000022076E";
+        let format = BillFormat::electricity();
+
+        let on_time = format.parse(code, date(2026, 11, 24)).unwrap();
+        assert_eq!(on_time.reference, "04154374153178");
+        assert_eq!(on_time.amount, 2130);
+        assert!(!on_time.late_fee);
+
+        let after_due = format.parse(code, date(2026, 11, 28)).unwrap();
+        assert_eq!(after_due.amount, 2207);
+        assert!(after_due.late_fee);
+
+        let after_last = format.parse(code, date(2026, 12, 1)).unwrap();
+        assert_eq!(after_last.amount, 2283);
+        assert!(after_last.late_fee);
+    }
+
+    #[test]
     fn bill_parse_finds_the_right_format() {
         let bill = Bill::parse(&sample(), date(2026, 12, 1)).unwrap();
         assert_eq!(bill.format, "electricity");

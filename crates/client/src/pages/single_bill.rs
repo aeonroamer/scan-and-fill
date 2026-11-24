@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use super::ui::{card, pick_row, picker_card, rupees};
-use crate::state::{alpha, Mode, Runner, Theme};
+use crate::state::{alpha, Mode, Runner, RunnerEvent, Theme};
 use gpui_kit::component::{
     button::{Button, ButtonVariants},
     ActiveTheme, Icon, IconName, Sizable,
@@ -35,7 +35,7 @@ const NARROW_W: f32 = 1100.0;
 
 pub struct SingleBillPage {
     runner: Entity<Runner>,
-    _subscription: Subscription,
+    _subscriptions: Vec<Subscription>,
     last: Option<Bill>,
     scanned: u32,
     typed: u32,
@@ -49,11 +49,29 @@ impl SingleBillPage {
         cx.new(|cx_self| {
             let softwares = Software::all();
             let runner = Runner::get(cx_self);
-            let subscription =
-                cx_self.observe(&runner, |_: &mut Self, _, cx_self| cx_self.notify());
+            let subscriptions = vec![
+                cx_self.observe(&runner, |_: &mut Self, _, cx_self| cx_self.notify()),
+                cx_self.subscribe(&runner, |this: &mut Self, _, event: &RunnerEvent, cx_self| {
+                    match event {
+                        RunnerEvent::Typed(bill) => {
+                            this.scanned += 1;
+                            this.typed += 1;
+                            this.last = Some(bill.clone());
+                        }
+                        RunnerEvent::Rejected(raw) => {
+                            this.scanned += 1;
+                            this.rejected += 1;
+                            tracing::warn!("unrecognized barcode: {raw}");
+                        }
+                        RunnerEvent::Failed(reason) => tracing::error!("typing failed: {reason}"),
+                        RunnerEvent::Focus(_) => {}
+                    }
+                    cx_self.notify();
+                }),
+            ];
             Self {
                 runner,
-                _subscription: subscription,
+                _subscriptions: subscriptions,
                 last: None,
                 scanned: 0,
                 typed: 0,
@@ -134,7 +152,13 @@ impl SingleBillPage {
     fn stage(&self, theme: &Theme, cx_self: &mut Context<Self>) -> Div {
         let target = self.software_label();
         let scanning = self.scanning(cx_self);
-        let (title, helper) = if scanning {
+        let focused = self.runner.read(cx_self).focused();
+        let (title, helper) = if scanning && !focused {
+            (
+                "Waiting for the portal",
+                format!("Open {target} and bring it to the front to start scanning."),
+            )
+        } else if scanning {
             (
                 "Listening for barcodes",
                 format!("Each bill is typed into {target} as soon as it's scanned."),

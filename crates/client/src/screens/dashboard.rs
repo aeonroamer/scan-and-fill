@@ -1,6 +1,6 @@
 use crate::pages::{BulkBillsPage, SettingsPage, SingleBillPage};
 use crate::state::{Route, RunState, Theme, alpha};
-use gpui_kit::component::{Icon, Sizable};
+use gpui_kit::component::{Icon, Sizable, scroll::ScrollableElement};
 use gpui_kit::prelude::FluentBuilder;
 use gpui_kit::{
     App, AppContext, Context, Div, Entity, FontWeight, InteractiveElement, IntoElement,
@@ -170,7 +170,15 @@ impl Render for DashboardScreen {
             .p(px(32.))
             .flex()
             .flex_col()
-            .child(div().flex_1().min_h_0().flex().flex_col().child(page));
+            .child(
+                div()
+                    .flex_1()
+                    .min_h_0()
+                    .flex()
+                    .flex_col()
+                    .child(page)
+                    .overflow_x_scrollbar(),
+            );
 
         let content = div()
             .flex_1()

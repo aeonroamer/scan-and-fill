@@ -67,3 +67,22 @@ pub(super) fn shortcut(keys: &'static str, action: &'static str, theme: &Theme, 
                 .child(action),
         )
 }
+
+const REFERENCE_MAX: usize = 24;
+const REFERENCE_LABEL: &str = "REF NO:";
+
+pub(super) fn clean_reference(raw: &str) -> Option<String> {
+    let raw = raw.trim();
+    if let Some(at) = raw.to_ascii_uppercase().find(REFERENCE_LABEL) {
+        let digits: String = raw[at + REFERENCE_LABEL.len()..]
+            .trim_start()
+            .chars()
+            .take_while(|c| c.is_ascii_digit())
+            .collect();
+        return (!digits.is_empty() && digits.len() <= REFERENCE_MAX).then_some(digits);
+    }
+    let valid = !raw.is_empty()
+        && raw.len() <= REFERENCE_MAX
+        && raw.chars().all(|c| c.is_ascii_alphanumeric());
+    valid.then(|| raw.to_string())
+}

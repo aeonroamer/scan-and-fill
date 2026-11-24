@@ -5,11 +5,12 @@ use windows::Win32::System::Threading::{
     OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
+    GetForegroundWindow, GetWindowThreadProcessId, InternalGetWindowText,
 };
 use windows::core::PWSTR;
 
 const PATH_CAPACITY: usize = 1024;
+const TITLE_CAPACITY: usize = 512;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WindowInfo {
@@ -42,13 +43,8 @@ fn window_info(hwnd: HWND) -> WindowInfo {
 }
 
 fn window_title(hwnd: HWND) -> String {
-    let len = unsafe { GetWindowTextLengthW(hwnd) };
-    if len <= 0 {
-        return String::new();
-    }
-
-    let mut buf = vec![0u16; len as usize + 1];
-    let written = unsafe { GetWindowTextW(hwnd, &mut buf) };
+    let mut buf = vec![0u16; TITLE_CAPACITY];
+    let written = unsafe { InternalGetWindowText(hwnd, &mut buf) };
     String::from_utf16_lossy(&buf[..written.max(0) as usize])
 }
 

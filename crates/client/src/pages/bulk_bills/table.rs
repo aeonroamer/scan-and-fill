@@ -175,6 +175,7 @@ impl BulkBillsPage {
                     .font_family(mono.clone())
                     .text_size(px(14.))
                     .text_color(theme.text_main)
+                    .truncate()
                     .child(entry.reference.clone()),
             )
             .when(!compact, |el| {

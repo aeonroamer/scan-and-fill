@@ -34,6 +34,7 @@ use crate::state::{
 const NOT_RECOGNIZED: &str =
     "That barcode wasn't recognized. Press Add or Ctrl+Enter to keep it as a reference number.";
 const AMOUNT_DIGITS: usize = 9;
+const BAD_REFERENCE: &str = "That doesn't look like a reference number. Use letters and digits only, up to 24.";
 const NO_SOFTWARE: &str = "your portal";
 
 const COMPOSER_H: f32 = 56.0;
@@ -42,6 +43,7 @@ const COL_INDEX: f32 = 44.0;
 const COL_BILL: f32 = 180.0;
 const COL_STATUS: f32 = 116.0;
 const SIDE_COMPACT_W: f32 = 248.0;
+const PAGE_MIN_W: f32 = 720.0;
 const COMPACT_BELOW: f32 = 1360.0;
 const STACK_BELOW: f32 = 1100.0;
 const STACKED_SIDE_H: f32 = 260.0;
@@ -339,7 +341,14 @@ impl BulkBillsPage {
         if raw.is_empty() {
             return;
         }
-        self.push(Entry::manual(raw.into()), window, cx_self);
+        match clean_reference(&raw) {
+            Some(reference) => self.push(Entry::manual(reference.into()), window, cx_self),
+            None => {
+                self.duplicate = None;
+                self.error = Some(BAD_REFERENCE.into());
+                cx_self.notify();
+            }
+        }
     }
 
     fn remove(&mut self, index: usize, cx_self: &mut Context<Self>) {
@@ -611,6 +620,7 @@ impl Render for BulkBillsPage {
         if stacked {
             return div()
                 .size_full()
+                .min_w(px(PAGE_MIN_W))
                 .flex()
                 .flex_col()
                 .gap(px(20.))
@@ -638,6 +648,7 @@ impl Render for BulkBillsPage {
 
         div()
             .size_full()
+            .min_w(px(PAGE_MIN_W))
             .flex()
             .gap(px(24.))
             .child(main)

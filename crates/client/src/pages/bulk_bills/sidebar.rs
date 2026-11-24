@@ -158,6 +158,10 @@ impl BulkBillsPage {
             )
         } else if ready {
             ("Ready to type".into(), "Start types the bill at the cursor, then moves on.")
+        } else if count == 0 {
+            ("No bills yet".into(), "Scan or add bills to this session to start typing.")
+        } else if paid < count {
+            ("Cursor is on a paid bill".into(), "Move the cursor to an unpaid bill to start typing.")
         } else {
             ("Nothing left to type".into(), "Every bill in this session is paid.")
         };

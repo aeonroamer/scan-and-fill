@@ -3,6 +3,8 @@
     "rust-analyzer": {
       "initialization_options": {
         "linkedProjects": ["Cargo.toml"],
+        "cachePriming": { "enable": false },
+        "cargo": { "targetDir": true },
         "files": {
           "excludeDirs": ["reference", "target", ".cargo", ".flatpak-builder"]
         }
