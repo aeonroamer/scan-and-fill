@@ -5,7 +5,18 @@ use gpui_kit::{
     StatefulInteractiveElement, Styled, Window, div, px,
 };
 
-use crate::state::Theme;
+use shared::Software;
+
+use crate::state::{AppSettings, Theme};
+
+pub(crate) fn default_software(softwares: &[Software], cx: &App) -> Option<SharedString> {
+    let chosen = AppSettings::get(cx).software.as_deref();
+    softwares
+        .iter()
+        .find(|software| chosen == Some(&*software.id))
+        .or(softwares.first())
+        .map(|software| software.id.clone())
+}
 
 pub(crate) fn card(theme: &Theme) -> Div {
     div()

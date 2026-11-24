@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use super::ui::{card, pick_row, picker_card, rupees};
-use crate::state::{alpha, Mode, Runner, RunnerEvent, Theme};
+use super::ui::{card, default_software, pick_row, picker_card, rupees};
+use crate::state::{alpha, AppSettings, Mode, Runner, RunnerEvent, Theme};
 use gpui_kit::component::{
     button::{Button, ButtonVariants},
     ActiveTheme, Icon, IconName, Sizable,
@@ -42,6 +42,7 @@ pub struct SingleBillPage {
     rejected: u32,
     softwares: Vec<Software>,
     software: Option<SharedString>,
+    default_software: Option<SharedString>,
 }
 
 impl SingleBillPage {
@@ -68,7 +69,18 @@ impl SingleBillPage {
                     }
                     cx_self.notify();
                 }),
+                cx_self.observe_global::<AppSettings>(|this: &mut Self, cx_self| {
+                    let default = default_software(&this.softwares, cx_self);
+                    if default != this.default_software {
+                        this.default_software = default.clone();
+                        if !this.runner.read(cx_self).is_running() {
+                            this.software = default;
+                        }
+                        cx_self.notify();
+                    }
+                }),
             ];
+            let software = default_software(&softwares, cx_self);
             Self {
                 runner,
                 _subscriptions: subscriptions,
@@ -76,7 +88,8 @@ impl SingleBillPage {
                 scanned: 0,
                 typed: 0,
                 rejected: 0,
-                software: softwares.first().map(|software| software.id.clone()),
+                default_software: software.clone(),
+                software,
                 softwares,
             }
         })

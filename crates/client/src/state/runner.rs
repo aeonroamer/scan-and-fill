@@ -255,7 +255,12 @@ impl Runner {
             RunnerEvent::Typed(bill) => {
                 tracing::info!(reference = %bill.reference, amount = bill.amount, "bill typed")
             }
-            RunnerEvent::Rejected(raw) => tracing::warn!(%raw, "barcode not recognized"),
+            RunnerEvent::Rejected(raw) => {
+                tracing::warn!(%raw, "barcode not recognized");
+                if AppSettings::get(cx_self).sound.unwrap_or(true) {
+                    win_ops::play_reject();
+                }
+            }
             RunnerEvent::Failed(reason) => tracing::error!(%reason, "typing failed"),
             RunnerEvent::Focus(focused) => tracing::info!(focused, "portal focus changed"),
         }

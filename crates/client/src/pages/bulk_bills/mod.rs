@@ -25,10 +25,11 @@ use gpui_kit::{
 };
 use shared::{Bill, Software, SoftwareKind};
 
-use super::ui::{card, pick_row, picker_card, rupees};
+use super::ui::{card, default_software, pick_row, picker_card, rupees};
 use crate::database::{self, BulkSession};
 use crate::state::{
-    BillList, BillListEvent, Database, Entry, Io, Mode, PushOutcome, Runner, Source, Theme,
+    AppSettings, BillList, BillListEvent, Database, Entry, Io, Mode, PushOutcome, Runner, Source,
+    Theme,
 };
 
 const NOT_RECOGNIZED: &str =
@@ -65,6 +66,7 @@ pub struct BulkBillsPage {
     runner: Entity<Runner>,
     softwares: Vec<Software>,
     software: Option<SharedString>,
+    default_software: Option<SharedString>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -98,6 +100,18 @@ impl BulkBillsPage {
 
             let softwares = Software::all();
             let runner = Runner::get(cx_self);
+            let software = default_software(&softwares, cx_self);
+            let settings_changed =
+                cx_self.observe_global::<AppSettings>(|this: &mut Self, cx_self| {
+                    let default = default_software(&this.softwares, cx_self);
+                    if default != this.default_software {
+                        this.default_software = default.clone();
+                        if !this.runner.read(cx_self).is_running() {
+                            this.software = default;
+                        }
+                        cx_self.notify();
+                    }
+                });
             let page = Self {
                 input,
                 sessions: Vec::new(),
@@ -110,10 +124,12 @@ impl BulkBillsPage {
                 rename_in_sidebar: false,
                 deleting: None,
                 runner: runner.clone(),
-                software: softwares.first().map(|software| software.id.clone()),
+                default_software: software.clone(),
+                software,
                 softwares,
                 _subscriptions: vec![
                     subscription,
+                    settings_changed,
                     cx_self.observe(&runner, |_: &mut Self, _, cx_self| cx_self.notify()),
                 ],
             };

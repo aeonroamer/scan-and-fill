@@ -18,16 +18,28 @@ pub struct ScanFill {
     screen: Screen,
 }
 
+const MIN_W: f32 = 960.;
+const MIN_H: f32 = 600.;
+
 impl ScanFill {
     pub fn bounds(app: &mut App) -> WindowBounds {
-        let bounds = Bounds::centered(None, size(px(1280.), px(800.0)), app);
-        WindowBounds::Windowed(bounds)
+        let (screen_w, screen_h) = app
+            .primary_display()
+            .map(|display| {
+                let screen = display.bounds().size;
+                (f32::from(screen.width), f32::from(screen.height))
+            })
+            .unwrap_or((1280., 800.));
+        let fit = |screen: f32, min: f32| (screen * 0.5).max(min).min(screen * 0.95);
+        let window = size(px(fit(screen_w, MIN_W)), px(fit(screen_h, MIN_H)));
+        WindowBounds::Windowed(Bounds::centered(None, window, app))
     }
 
     pub fn window_options(app: &mut App) -> WindowOptions {
         let win_size = Self::bounds(app);
         WindowOptions {
             window_bounds: Some(win_size),
+            window_min_size: Some(size(px(MIN_W), px(MIN_H))),
             titlebar: Some(TitlebarOptions {
                 title: Some(SharedString::new("Scan & Fill")),
                 ..Default::default()
@@ -103,6 +115,16 @@ impl ScanFill {
                     window,
                     |this: &mut ScanFill, _, event: &SplashEvent, window, cx_self| match event {
                         SplashEvent::Retry => this.boot(window, cx_self),
+                        SplashEvent::Reset => {
+                            match database::reset() {
+                                Ok(Some(backup)) => {
+                                    tracing::warn!(backup = %backup.display(), "database reset")
+                                }
+                                Ok(None) => tracing::warn!("database reset: nothing to move"),
+                                Err(e) => tracing::error!("database reset failed: {e}"),
+                            }
+                            this.boot(window, cx_self);
+                        }
                     },
                 )
                 .detach();

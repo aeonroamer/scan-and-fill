@@ -12,6 +12,7 @@ const TAGLINE: &str = "Scan the barcode. The form fills itself.";
 const STATUS: &str = "Getting your workspace ready…";
 const COMPANY: &str = "Aeon Logics";
 const VERSION: &str = concat!("v", env!("CARGO_PKG_VERSION"));
+const RESET_HINT: &str = "Reset starts fresh. Your old data is kept as a backup.";
 
 const TITLE_SIZE: f32 = 56.0;
 const SLOT_H: f32 = 120.0;
@@ -23,6 +24,7 @@ const BEAM_MS: u64 = 1400;
 
 pub enum SplashEvent {
     Retry,
+    Reset,
 }
 
 pub struct SplashScreen {
@@ -62,6 +64,12 @@ impl Render for SplashScreen {
             cx_self.emit(SplashEvent::Retry);
             cx_self.notify();
         });
+        let reset_event = cx_self.listener(|this, _, _, cx_self| {
+            this.error = None;
+            this.detail = None;
+            cx_self.emit(SplashEvent::Reset);
+            cx_self.notify();
+        });
 
         let slot = match &self.error {
             Some(error) => div()
@@ -91,11 +99,29 @@ impl Render for SplashScreen {
                         })),
                 )
                 .child(
-                    Button::new("splash-retry")
-                        .label("Try again")
-                        .outline()
-                        .small()
-                        .on_click(retry_event),
+                    div()
+                        .flex()
+                        .gap(px(8.))
+                        .child(
+                            Button::new("splash-retry")
+                                .label("Try again")
+                                .outline()
+                                .small()
+                                .on_click(retry_event),
+                        )
+                        .child(
+                            Button::new("splash-reset")
+                                .label("Reset data")
+                                .ghost()
+                                .small()
+                                .on_click(reset_event),
+                        ),
+                )
+                .child(
+                    div()
+                        .text_size(px(12.))
+                        .text_color(theme.text_muted)
+                        .child(RESET_HINT),
                 )
                 .with_animation(
                     "splash-error",
