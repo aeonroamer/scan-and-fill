@@ -59,6 +59,7 @@ impl BulkBillsPage {
         index: usize,
         entry: &Entry,
         cursor: usize,
+        compact: bool,
         theme: &Theme,
         mono: &SharedString,
         cx_self: &mut Context<Self>,
@@ -176,7 +177,9 @@ impl BulkBillsPage {
                     .text_color(theme.text_main)
                     .child(entry.reference.clone()),
             )
-            .child(div().w(px(COL_STATUS)).child(badge_pill(badge, badge_fg, badge_bg)))
+            .when(!compact, |el| {
+                el.child(div().w(px(COL_STATUS)).child(badge_pill(badge, badge_fg, badge_bg)))
+            })
             .child(self.amount_cell(index, entry, theme, cx_self))
             .child(
                 div().w(px(COL_ACTION)).flex().justify_end().child(

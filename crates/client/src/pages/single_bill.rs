@@ -1,19 +1,18 @@
 use std::time::Duration;
 
 use super::ui::{card, pick_row, picker_card, rupees};
-use crate::state::{Mode, Runner, Theme, alpha};
+use crate::state::{alpha, Mode, Runner, Theme};
 use gpui_kit::component::{
-    ActiveTheme, Icon, IconName, Sizable,
     button::{Button, ButtonVariants},
-};
-use gpui_kit::{
-    Animation, AnimationExt, AnyElement, App, AppContext, Context, Div, Entity,
-    FontWeight, IntoElement, ParentElement, Render, Rgba, SharedString,
-    Styled, Subscription, Window, div, ease_in_out, pulsating_between, px,
-    relative,
+    ActiveTheme, Icon, IconName, Sizable,
 };
 use gpui_kit::prelude::FluentBuilder;
-use shared::{Bill, BillFormat, Software, SoftwareKind};
+use gpui_kit::{
+    div, ease_in_out, pulsating_between, px, relative, Animation, AnimationExt, AnyElement, App,
+    AppContext, Context, Div, Entity, FontWeight, IntoElement, ParentElement, Render, Rgba,
+    SharedString, Styled, Subscription, Window,
+};
+use shared::{Bill, Software, SoftwareKind};
 
 const NO_SOFTWARE: &str = "your portal";
 
@@ -42,7 +41,6 @@ pub struct SingleBillPage {
     typed: u32,
     rejected: u32,
     softwares: Vec<Software>,
-    formats: Vec<BillFormat>,
     software: Option<SharedString>,
 }
 
@@ -50,7 +48,6 @@ impl SingleBillPage {
     pub fn build_view(cx: &mut App) -> Entity<Self> {
         cx.new(|cx_self| {
             let softwares = Software::all();
-            let formats = BillFormat::all();
             let runner = Runner::get(cx_self);
             let subscription =
                 cx_self.observe(&runner, |_: &mut Self, _, cx_self| cx_self.notify());
@@ -63,7 +60,6 @@ impl SingleBillPage {
                 rejected: 0,
                 software: softwares.first().map(|software| software.id.clone()),
                 softwares,
-                formats,
             }
         })
     }
@@ -133,56 +129,6 @@ impl SingleBillPage {
             })
             .collect();
         picker_card(theme).children(rows)
-    }
-
-    fn detected_formats(&self, theme: &Theme) -> Div {
-        let rows: Vec<_> = self
-            .formats
-            .iter()
-            .map(|format| {
-                div()
-                    .px(px(10.))
-                    .py(px(8.))
-                    .flex()
-                    .items_center()
-                    .gap(px(12.))
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .flex()
-                            .flex_col()
-                            .gap(px(2.))
-                            .child(
-                                div()
-                                    .text_size(px(14.))
-                                    .text_color(theme.text_main)
-                                    .child(format.label.clone()),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(12.))
-                                    .text_color(theme.text_muted)
-                                    .child(format!("{}-digit barcode", format.length)),
-                            ),
-                    )
-                    .child(
-                        Icon::new(IconName::CircleCheck)
-                            .small()
-                            .text_color(theme.success),
-                    )
-            })
-            .collect();
-
-        picker_card(theme).children(rows).child(
-            div()
-                .px(px(10.))
-                .pt(px(4.))
-                .pb(px(6.))
-                .text_size(px(12.))
-                .text_color(theme.text_muted)
-                .child("The bill type is detected from the barcode."),
-        )
     }
 
     fn stage(&self, theme: &Theme, cx_self: &mut Context<Self>) -> Div {
@@ -379,10 +325,17 @@ fn barcode(scanning: bool, theme: &Theme) -> Div {
     };
     let total: f32 = BARS.iter().map(|w| *w as f32).sum();
 
-    let bars = div().size_full().flex().children(BARS.iter().enumerate().map(|(i, w)| {
-        let bar = div().h_full().w(relative(*w as f32 / total));
-        if i % 2 == 0 { bar.bg(bar_color) } else { bar }
-    }));
+    let bars = div()
+        .size_full()
+        .flex()
+        .children(BARS.iter().enumerate().map(|(i, w)| {
+            let bar = div().h_full().w(relative(*w as f32 / total));
+            if i % 2 == 0 {
+                bar.bg(bar_color)
+            } else {
+                bar
+            }
+        }));
 
     let frame = div()
         .relative()
@@ -473,7 +426,6 @@ impl Render for SingleBillPage {
         let narrow = window.viewport_size().width < px(NARROW_W);
 
         let software = section("Software", self.software_picker(&theme, cx_self), &theme);
-        let format = section("Recognized bills", self.detected_formats(&theme), &theme);
         let last = section("Last scanned", self.last_scanned(&theme, mono), &theme);
         let session = section("This session", self.session(&theme), &theme);
 
@@ -491,7 +443,7 @@ impl Render for SingleBillPage {
                 .flex()
                 .flex_col()
                 .gap(px(24.))
-                .child(pair(software, format))
+                .child(software)
                 .child(pair(last, session))
         } else {
             div()
@@ -501,7 +453,6 @@ impl Render for SingleBillPage {
                 .flex_col()
                 .gap(px(24.))
                 .child(software)
-                .child(format)
                 .child(last)
                 .child(session)
         };

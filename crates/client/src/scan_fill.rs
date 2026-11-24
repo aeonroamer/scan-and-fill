@@ -1,9 +1,9 @@
 use std::time::Duration;
 
 use crate::{
-    database::{self, DbError},
+    database::{self, DbError, Settings},
     screens::{DashboardScreen, SplashEvent, SplashScreen},
-    state::{Database, Io, Screen},
+    state::{AppSettings, Database, Io, Screen},
 };
 use gpui_kit::{
     App, AppContext, Bounds, Context, Entity, IntoElement, Render, SharedString, TitlebarOptions,
@@ -48,7 +48,11 @@ impl ScanFill {
 
         let job = Io::spawn(cx_self, async move {
             let db = database::open().await?;
-            Ok::<_, DbError>(db)
+            let settings = database::load_settings(&db).await.unwrap_or_else(|e| {
+                tracing::error!("loading settings failed: {e}");
+                Settings::default()
+            });
+            Ok::<_, DbError>((db, settings))
         });
 
         cx_self
@@ -57,10 +61,11 @@ impl ScanFill {
                 let result = job.await;
 
                 let detail = match result {
-                    Ok(Ok(db)) => {
+                    Ok(Ok((db, settings))) => {
                         timer.await;
                         let _ = this.update_in(cx, |this, window, cx_self| {
                             cx_self.set_global(Database::new(db));
+                            AppSettings::provide(settings, cx_self);
                             this.show_dashboard(window, cx_self);
                         });
                         return;

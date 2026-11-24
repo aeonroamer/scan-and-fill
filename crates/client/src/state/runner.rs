@@ -3,10 +3,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use gpui_kit::{App, AppContext, Context, Entity, Global, WeakEntity};
+use gpui_kit::{App, AppContext, Context, Entity, Global, SharedString, WeakEntity};
 use shared::Software;
 
-use super::{BillList, RunState};
+use super::{AppSettings, BillList, RunState};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
@@ -22,6 +22,7 @@ pub struct Job {
 
 pub struct Runner {
     software: Option<Software>,
+    contact: Option<SharedString>,
     bills: Option<WeakEntity<BillList>>,
     job: Option<Job>,
 }
@@ -34,6 +35,7 @@ impl Runner {
     pub fn provide(cx: &mut App) {
         let runner = cx.new(|_| Self {
             software: None,
+            contact: None,
             bills: None,
             job: None,
         });
@@ -54,6 +56,10 @@ impl Runner {
 
     pub fn software(&self) -> Option<&Software> {
         self.software.as_ref()
+    }
+
+    pub fn contact(&self) -> Option<&SharedString> {
+        self.contact.as_ref()
     }
 
     pub fn bills(&self) -> Option<&WeakEntity<BillList>> {
@@ -80,6 +86,7 @@ impl Runner {
         });
 
         self.software = Some(software);
+        self.contact = Some(AppSettings::get(cx_self).contact().to_string().into());
         self.bills = bills;
         self.job = Some(Job {
             mode,

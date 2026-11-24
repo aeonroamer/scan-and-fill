@@ -1,3 +1,4 @@
+mod app_settings;
 mod background;
 mod bill_list;
 mod database;
@@ -6,6 +7,7 @@ mod run_state;
 mod runner;
 mod theme;
 
+pub use app_settings::*;
 pub use background::*;
 pub use bill_list::*;
 pub use database::*;

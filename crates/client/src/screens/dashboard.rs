@@ -1,4 +1,4 @@
-use crate::pages::{BulkBillsPage, SingleBillPage};
+use crate::pages::{BulkBillsPage, SettingsPage, SingleBillPage};
 use crate::state::{Route, RunState, Theme, alpha};
 use gpui_kit::component::{Icon, Sizable};
 use gpui_kit::prelude::FluentBuilder;
@@ -19,6 +19,7 @@ pub struct DashboardScreen {
     route: Route,
     single_bill: Entity<SingleBillPage>,
     bulk_bills: Entity<BulkBillsPage>,
+    settings: Entity<SettingsPage>,
 }
 
 impl DashboardScreen {
@@ -31,6 +32,7 @@ impl DashboardScreen {
             route: Route::SingleBill,
             single_bill: SingleBillPage::build_view(cx_self),
             bulk_bills: BulkBillsPage::build_view(window, cx_self),
+            settings: SettingsPage::build_view(window, cx_self),
             }
         })
     }
@@ -159,23 +161,7 @@ impl Render for DashboardScreen {
         let page = match self.route {
             Route::SingleBill => self.single_bill.clone().into_any_element(),
             Route::BulkBill => self.bulk_bills.clone().into_any_element(),
-            route => div()
-                .flex()
-                .flex_col()
-                .gap(px(6.))
-                .child(
-                    div()
-                        .text_size(px(20.))
-                        .text_color(theme.text_main)
-                        .child(route.title()),
-                )
-                .child(
-                    div()
-                        .text_size(px(14.))
-                        .text_color(theme.text_muted)
-                        .child(route.description()),
-                )
-                .into_any_element(),
+            Route::Settings => self.settings.clone().into_any_element(),
         };
 
         let body = div()

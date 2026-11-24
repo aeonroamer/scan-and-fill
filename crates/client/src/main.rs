@@ -13,7 +13,7 @@ use scan_fill::ScanFill;
 fn main() {
     let _log_guard = logging::init();
     tracing::info!("starting Scan & Fill {}", env!("CARGO_PKG_VERSION"));
-    focus_watch::spawn();
+    // focus_watch::spawn();
 
     gpui_kit::application().with_assets(Assets).run(|cx| {
         gpui_kit::init(cx);

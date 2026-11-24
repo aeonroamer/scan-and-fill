@@ -33,7 +33,6 @@ use crate::state::{
 
 const NOT_RECOGNIZED: &str =
     "That barcode wasn't recognized. Press Add or Ctrl+Enter to keep it as a reference number.";
-const ALREADY_SCANNED: &str = "This bill reference number has already been scanned. If this is a detection bill, you can edit the amount directly.";
 const AMOUNT_DIGITS: usize = 9;
 const NO_SOFTWARE: &str = "your portal";
 
@@ -42,6 +41,10 @@ const SIDE_W: f32 = 300.0;
 const COL_INDEX: f32 = 44.0;
 const COL_BILL: f32 = 180.0;
 const COL_STATUS: f32 = 116.0;
+const SIDE_COMPACT_W: f32 = 248.0;
+const COMPACT_BELOW: f32 = 1360.0;
+const STACK_BELOW: f32 = 1100.0;
+const STACKED_SIDE_H: f32 = 260.0;
 const COL_AMOUNT: f32 = 130.0;
 const COL_ACTION: f32 = 32.0;
 const ROW_GROUP: &str = "bill-row";
@@ -67,7 +70,8 @@ impl BulkBillsPage {
     pub fn build_view(window: &mut Window, cx: &mut App) -> Entity<Self> {
         cx.new(|cx_self| {
             let input = cx_self.new(|cx_self| {
-                InputState::new(window, cx_self).placeholder("Scan a bill or type a reference number")
+                InputState::new(window, cx_self)
+                    .placeholder("Scan a bill or type a reference number")
             });
 
             let subscription = cx_self.subscribe_in(
@@ -400,6 +404,9 @@ impl Render for BulkBillsPage {
     fn render(&mut self, window: &mut Window, cx_self: &mut Context<Self>) -> impl IntoElement {
         let theme = *cx_self.global::<Theme>();
         let mono = cx_self.theme().mono_font_family.clone();
+        let width = window.viewport_size().width;
+        let compact = width < px(COMPACT_BELOW);
+        let stacked = width < px(STACK_BELOW);
         let focused = self
             .input
             .read(cx_self)
@@ -451,7 +458,11 @@ impl Render for BulkBillsPage {
                         .gap(px(6.))
                         .text_size(px(13.))
                         .text_color(theme.error)
-                        .child(Icon::new(IconName::CircleAlert).small().text_color(theme.error))
+                        .child(
+                            Icon::new(IconName::CircleAlert)
+                                .small()
+                                .text_color(theme.error),
+                        )
                         .child(error),
                 )
             });
@@ -468,115 +479,118 @@ impl Render for BulkBillsPage {
         let scanned = entries.iter().filter(|entry| entry.is_scanned()).count();
         let total: u32 = entries.iter().filter_map(|entry| entry.amount).sum();
 
-        let table = if count == 0 {
-            card(&theme)
-                .py(px(48.))
-                .flex()
-                .flex_col()
-                .items_center()
-                .gap(px(6.))
-                .child(
-                    Icon::new(IconName::FileText)
-                        .large()
-                        .text_color(theme.text_disabled),
-                )
-                .child(
-                    div()
-                        .mt(px(6.))
-                        .text_size(px(14.))
-                        .text_color(theme.text_main)
-                        .child("No bills in this session"),
-                )
-                .child(
-                    div()
-                        .text_size(px(13.))
-                        .text_color(theme.text_muted)
-                        .child("Scan a bill or add a reference number to start the list."),
-                )
-        } else {
-            let header = div()
-                .px(px(16.))
-                .py(px(10.))
-                .flex()
-                .items_center()
-                .gap(px(16.))
-                .bg(theme.bg_panel)
-                .child(div().w(px(COL_INDEX)).child(column("#", &theme)))
-                .child(div().w(px(COL_BILL)).child(column("Bill", &theme)))
-                .child(div().flex_1().child(column("Reference", &theme)))
-                .child(div().w(px(COL_STATUS)).child(column("Status", &theme)))
-                .child(
-                    div()
-                        .w(px(COL_AMOUNT))
-                        .flex()
-                        .justify_end()
-                        .child(column("Amount", &theme)),
-                )
-                .child(div().w(px(COL_ACTION)));
+        let table =
+            if count == 0 {
+                card(&theme)
+                    .py(px(48.))
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .gap(px(6.))
+                    .child(
+                        Icon::new(IconName::FileText)
+                            .large()
+                            .text_color(theme.text_disabled),
+                    )
+                    .child(
+                        div()
+                            .mt(px(6.))
+                            .text_size(px(14.))
+                            .text_color(theme.text_main)
+                            .child("No bills in this session"),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(13.))
+                            .text_color(theme.text_muted)
+                            .child("Scan a bill or add a reference number to start the list."),
+                    )
+            } else {
+                let header = div()
+                    .px(px(16.))
+                    .py(px(10.))
+                    .flex()
+                    .items_center()
+                    .gap(px(16.))
+                    .bg(theme.bg_panel)
+                    .child(div().w(px(COL_INDEX)).child(column("#", &theme)))
+                    .child(div().w(px(COL_BILL)).child(column("Bill", &theme)))
+                    .child(div().flex_1().child(column("Reference", &theme)))
+                    .when(!compact, |el| {
+                        el.child(div().w(px(COL_STATUS)).child(column("Status", &theme)))
+                    })
+                    .child(
+                        div()
+                            .w(px(COL_AMOUNT))
+                            .flex()
+                            .justify_end()
+                            .child(column("Amount", &theme)),
+                    )
+                    .child(div().w(px(COL_ACTION)));
 
-            let rows: Vec<_> = entries
-                .iter()
-                .enumerate()
-                .map(|(index, entry)| self.entry_row(index, entry, cursor, &theme, &mono, cx_self))
-                .collect();
+                let rows: Vec<_> = entries
+                    .iter()
+                    .enumerate()
+                    .map(|(index, entry)| {
+                        self.entry_row(index, entry, cursor, compact, &theme, &mono, cx_self)
+                    })
+                    .collect();
 
-            let typed = count - scanned;
-            let footer = div()
-                .px(px(16.))
-                .py(px(14.))
-                .flex()
-                .items_center()
-                .justify_between()
-                .border_t_1()
-                .border_color(theme.border_subtle)
-                .bg(theme.bg_panel)
-                .child(
+                let typed = count - scanned;
+                let footer =
                     div()
-                        .text_size(px(13.))
-                        .text_color(theme.text_muted)
-                        .child(format!(
-                            "{count} {} · {paid} paid · {scanned} scanned · {typed} typed",
-                            if count == 1 { "bill" } else { "bills" }
-                        )),
-                )
-                .child(
-                    div()
+                        .px(px(16.))
+                        .py(px(14.))
                         .flex()
-                        .items_baseline()
-                        .gap(px(8.))
+                        .items_center()
+                        .justify_between()
+                        .border_t_1()
+                        .border_color(theme.border_subtle)
+                        .bg(theme.bg_panel)
+                        .child(div().text_size(px(13.)).text_color(theme.text_muted).child(
+                            format!(
+                                "{count} {} · {paid} paid · {scanned} scanned · {typed} typed",
+                                if count == 1 { "bill" } else { "bills" }
+                            ),
+                        ))
                         .child(
                             div()
-                                .text_size(px(13.))
-                                .text_color(theme.text_muted)
-                                .child("Total"),
-                        )
-                        .child(
-                            div()
-                                .text_size(px(18.))
-                                .font_weight(FontWeight::MEDIUM)
-                                .text_color(theme.text_main)
-                                .child(rupees(total)),
-                        ),
-                );
+                                .flex()
+                                .items_baseline()
+                                .gap(px(8.))
+                                .child(
+                                    div()
+                                        .text_size(px(13.))
+                                        .text_color(theme.text_muted)
+                                        .child("Total"),
+                                )
+                                .child(
+                                    div()
+                                        .text_size(px(18.))
+                                        .font_weight(FontWeight::MEDIUM)
+                                        .text_color(theme.text_main)
+                                        .child(rupees(total)),
+                                ),
+                        );
 
-            card(&theme)
-                .flex_1()
-                .min_h_0()
-                .overflow_hidden()
-                .flex()
-                .flex_col()
-                .child(header)
-                .child(
-                    div()
-                        .flex_1()
-                        .min_h_0()
-                        .flex()
-                        .flex_col()
-                        .children(rows)
-                        .overflow_y_scrollbar(),
-                )
-                .child(footer)
-        };
+                card(&theme)
+                    .flex_1()
+                    .min_h_0()
+                    .overflow_hidden()
+                    .flex()
+                    .flex_col()
+                    .child(header)
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_h_0()
+                            .flex()
+                            .flex_col()
+                            .children(rows)
+                            .overflow_y_scrollbar(),
+                    )
+                    .child(footer)
+            };
 
         let header = self.session_header(&theme, cx_self);
 
@@ -591,15 +605,36 @@ impl Render for BulkBillsPage {
             .child(entry_box)
             .child(table);
 
+        let run = self.run_panel(compact, &theme, &mono, cx_self);
+        let sessions = self.sessions_panel(&theme, cx_self);
+
+        if stacked {
+            return div()
+                .size_full()
+                .flex()
+                .flex_col()
+                .gap(px(20.))
+                .child(
+                    div()
+                        .h(px(STACKED_SIDE_H))
+                        .flex_none()
+                        .flex()
+                        .gap(px(16.))
+                        .child(div().flex_1().min_w_0().child(run))
+                        .child(div().w(px(SIDE_COMPACT_W)).flex().child(sessions)),
+                )
+                .child(main.h_auto().flex_1().min_h_0());
+        }
+
         let side = div()
-            .w(px(SIDE_W))
+            .w(px(if compact { SIDE_COMPACT_W } else { SIDE_W }))
             .flex_none()
             .h_full()
             .flex()
             .flex_col()
             .gap(px(16.))
-            .child(self.run_panel(&theme, &mono, cx_self))
-            .child(self.sessions_panel(&theme, cx_self));
+            .child(run)
+            .child(sessions);
 
         div()
             .size_full()

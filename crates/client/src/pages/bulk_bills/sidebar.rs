@@ -123,7 +123,13 @@ impl BulkBillsPage {
             )
     }
 
-    pub(super) fn run_panel(&self, theme: &Theme, mono: &SharedString, cx_self: &mut Context<Self>) -> Div {
+    pub(super) fn run_panel(
+        &self,
+        compact: bool,
+        theme: &Theme,
+        mono: &SharedString,
+        cx_self: &mut Context<Self>,
+    ) -> Div {
         let target = self.software_label();
         let (count, paid, paid_amount, total_amount, next, can_step_back) =
             match self.current_bills() {
@@ -282,7 +288,7 @@ impl BulkBillsPage {
                             .child(helper),
                     ),
             )
-            .child(picker_card(theme).children(softwares))
+            .when(!compact, |el| el.child(picker_card(theme).children(softwares)))
             .child(start)
             .child(
                 div()
@@ -328,20 +334,22 @@ impl BulkBillsPage {
                     .flex_col()
                     .gap(px(8.))
                     .child(stat("Next", next_value))
-                    .child(stat(
-                        "Paid",
-                        div()
-                            .text_size(px(13.))
-                            .text_color(theme.text_main)
-                            .child(rupees(paid_amount)),
-                    ))
-                    .child(stat(
-                        "Left",
-                        div()
-                            .text_size(px(13.))
-                            .text_color(theme.text_main)
-                            .child(rupees(total_amount.saturating_sub(paid_amount))),
-                    )),
+                    .when(!compact, |el| {
+                        el.child(stat(
+                            "Paid",
+                            div()
+                                .text_size(px(13.))
+                                .text_color(theme.text_main)
+                                .child(rupees(paid_amount)),
+                        ))
+                        .child(stat(
+                            "Left",
+                            div()
+                                .text_size(px(13.))
+                                .text_color(theme.text_main)
+                                .child(rupees(total_amount.saturating_sub(paid_amount))),
+                        ))
+                    }),
             )
             .child(
                 Button::new("bulk-step-back")
