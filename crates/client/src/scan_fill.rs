@@ -36,8 +36,8 @@ impl ScanFill {
         }
     }
 
-    pub fn show_dashboard(&mut self, cx_self: &mut Context<Self>) {
-        self.screen = Screen::Dashboard(DashboardScreen::build_view(cx_self));
+    pub fn show_dashboard(&mut self, window: &mut Window, cx_self: &mut Context<Self>) {
+        self.screen = Screen::Dashboard(DashboardScreen::build_view(window, cx_self));
         cx_self.notify();
     }
 
@@ -59,9 +59,9 @@ impl ScanFill {
                 let detail = match result {
                     Ok(Ok(db)) => {
                         timer.await;
-                        let _ = this.update(cx, |this, cx_self| {
+                        let _ = this.update_in(cx, |this, window, cx_self| {
                             cx_self.set_global(Database::new(db));
-                            this.show_dashboard(cx_self);
+                            this.show_dashboard(window, cx_self);
                         });
                         return;
                     }

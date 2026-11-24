@@ -6,7 +6,7 @@ mod scan_fill;
 mod screens;
 mod state;
 
-use crate::state::{Io, Theme};
+use crate::state::{Io, Runner, Theme};
 use gpui_kit::{AppContext, assets::Assets, base::Root};
 use scan_fill::ScanFill;
 
@@ -19,6 +19,7 @@ fn main() {
         gpui_kit::init(cx);
         Theme::provide(cx);
         Io::provide(cx);
+        Runner::provide(cx);
 
         let win_ops = ScanFill::window_options(cx);
         gpui_kit::open_window(win_ops, cx, |window, cx| {

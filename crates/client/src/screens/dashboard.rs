@@ -1,5 +1,5 @@
-use crate::pages::SingleBillPage;
-use crate::state::{Route, Theme, alpha};
+use crate::pages::{BulkBillsPage, SingleBillPage};
+use crate::state::{Route, RunState, Theme, alpha};
 use gpui_kit::component::{Icon, Sizable};
 use gpui_kit::prelude::FluentBuilder;
 use gpui_kit::{
@@ -18,18 +18,26 @@ const BILL_ROUTES: [Route; 2] = [Route::SingleBill, Route::BulkBill];
 pub struct DashboardScreen {
     route: Route,
     single_bill: Entity<SingleBillPage>,
+    bulk_bills: Entity<BulkBillsPage>,
 }
 
 impl DashboardScreen {
-    pub fn build_view(cx: &mut App) -> Entity<Self> {
-        cx.new(|cx_self| Self {
+    pub fn build_view(window: &mut Window, cx: &mut App) -> Entity<Self> {
+        cx.new(|cx_self| {
+            cx_self
+                .observe_global::<RunState>(|_, cx_self| cx_self.notify())
+                .detach();
+            Self {
             route: Route::SingleBill,
             single_bill: SingleBillPage::build_view(cx_self),
+            bulk_bills: BulkBillsPage::build_view(window, cx_self),
+            }
         })
     }
 
     fn nav_item(&self, route: Route, theme: &Theme, cx_self: &mut Context<Self>) -> Stateful<Div> {
         let active = self.route == route;
+        let locked = !active && RunState::is_running(cx_self);
 
         let (text, icon, bg) = if active {
             (theme.text_main, theme.accent, theme.bg_selected)
@@ -47,16 +55,19 @@ impl DashboardScreen {
             .items_center()
             .gap(px(10.))
             .rounded(px(6.))
-            .cursor_pointer()
+            .when(!locked, |el| el.cursor_pointer())
+            .when(locked, |el| el.opacity(0.4))
             .bg(bg)
             .text_size(px(14.))
             .text_color(text)
             .when(active, |el| el.font_weight(FontWeight::MEDIUM))
-            .when(!active, |el| el.hover(move |s| s.bg(hover_bg).text_color(hover_text)))
+            .when(!active && !locked, |el| {
+                el.hover(move |s| s.bg(hover_bg).text_color(hover_text))
+            })
             .child(Icon::new(route.icon()).small().text_color(icon))
             .child(route.title())
             .on_click(cx_self.listener(move |this, _, _, cx_self| {
-                if this.route != route {
+                if this.route != route && !RunState::is_running(cx_self) {
                     this.route = route;
                     cx_self.notify();
                 }
@@ -147,6 +158,7 @@ impl Render for DashboardScreen {
 
         let page = match self.route {
             Route::SingleBill => self.single_bill.clone().into_any_element(),
+            Route::BulkBill => self.bulk_bills.clone().into_any_element(),
             route => div()
                 .flex()
                 .flex_col()

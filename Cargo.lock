@@ -7853,6 +7853,7 @@ dependencies = [
 name = "scanfill"
 version = "1.1.0"
 dependencies = [
+ "chrono",
  "directories",
  "gpui-kit",
  "shared",

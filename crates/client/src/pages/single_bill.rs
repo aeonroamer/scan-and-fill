@@ -1,14 +1,15 @@
 use std::time::Duration;
 
-use crate::state::{Theme, alpha};
+use super::ui::{card, pick_row, picker_card, rupees};
+use crate::state::{Mode, Runner, Theme, alpha};
 use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable,
     button::{Button, ButtonVariants},
 };
 use gpui_kit::{
-    Animation, AnimationExt, AnyElement, App, AppContext, ClickEvent, Context, Div, Entity,
-    FontWeight, InteractiveElement, IntoElement, ParentElement, Render, Rgba, SharedString,
-    Stateful, StatefulInteractiveElement, Styled, Window, div, ease_in_out, pulsating_between, px,
+    Animation, AnimationExt, AnyElement, App, AppContext, Context, Div, Entity,
+    FontWeight, IntoElement, ParentElement, Render, Rgba, SharedString,
+    Styled, Subscription, Window, div, ease_in_out, pulsating_between, px,
     relative,
 };
 use gpui_kit::prelude::FluentBuilder;
@@ -34,7 +35,8 @@ const STAGE_MIN_H: f32 = 420.0;
 const NARROW_W: f32 = 1100.0;
 
 pub struct SingleBillPage {
-    scanning: bool,
+    runner: Entity<Runner>,
+    _subscription: Subscription,
     last: Option<Bill>,
     scanned: u32,
     typed: u32,
@@ -42,43 +44,57 @@ pub struct SingleBillPage {
     softwares: Vec<Software>,
     formats: Vec<BillFormat>,
     software: Option<SharedString>,
-    format: Option<SharedString>,
 }
 
 impl SingleBillPage {
     pub fn build_view(cx: &mut App) -> Entity<Self> {
-        cx.new(|_| {
+        cx.new(|cx_self| {
             let softwares = Software::all();
             let formats = BillFormat::all();
+            let runner = Runner::get(cx_self);
+            let subscription =
+                cx_self.observe(&runner, |_: &mut Self, _, cx_self| cx_self.notify());
             Self {
-                scanning: false,
+                runner,
+                _subscription: subscription,
                 last: None,
                 scanned: 0,
                 typed: 0,
                 rejected: 0,
                 software: softwares.first().map(|software| software.id.clone()),
-                format: formats.first().map(|format| format.id.clone()),
                 softwares,
                 formats,
             }
         })
     }
 
+    fn scanning(&self, cx: &App) -> bool {
+        self.runner.read(cx).mode() == Some(Mode::Single)
+    }
+
     fn toggle_scanning(&mut self, cx_self: &mut Context<Self>) {
-        self.scanning = !self.scanning;
-        cx_self.notify();
+        let runner = self.runner.clone();
+        if runner.read(cx_self).is_running() {
+            runner.update(cx_self, |runner, cx_self| runner.stop(cx_self));
+            return;
+        }
+
+        let Some(software) = self
+            .softwares
+            .iter()
+            .find(|software| Some(&software.id) == self.software.as_ref())
+            .cloned()
+        else {
+            return;
+        };
+        runner.update(cx_self, |runner, cx_self| {
+            runner.start(Mode::Single, software, None, cx_self)
+        });
     }
 
     fn select_software(&mut self, id: SharedString, cx_self: &mut Context<Self>) {
         if self.software.as_ref() != Some(&id) {
             self.software = Some(id);
-            cx_self.notify();
-        }
-    }
-
-    fn select_format(&mut self, id: SharedString, cx_self: &mut Context<Self>) {
-        if self.format.as_ref() != Some(&id) {
-            self.format = Some(id);
             cx_self.notify();
         }
     }
@@ -119,30 +135,60 @@ impl SingleBillPage {
         picker_card(theme).children(rows)
     }
 
-    fn format_picker(&self, theme: &Theme, cx_self: &mut Context<Self>) -> Div {
+    fn detected_formats(&self, theme: &Theme) -> Div {
         let rows: Vec<_> = self
             .formats
             .iter()
             .map(|format| {
-                let id = format.id.clone();
-                pick_row(
-                    format!("format-{}", format.id).into(),
-                    format.label.clone(),
-                    format!("{}-digit barcode", format.length).into(),
-                    self.format.as_ref() == Some(&format.id),
-                    theme,
-                    cx_self.listener(move |this, _, _, cx_self| {
-                        this.select_format(id.clone(), cx_self)
-                    }),
-                )
+                div()
+                    .px(px(10.))
+                    .py(px(8.))
+                    .flex()
+                    .items_center()
+                    .gap(px(12.))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .flex()
+                            .flex_col()
+                            .gap(px(2.))
+                            .child(
+                                div()
+                                    .text_size(px(14.))
+                                    .text_color(theme.text_main)
+                                    .child(format.label.clone()),
+                            )
+                            .child(
+                                div()
+                                    .text_size(px(12.))
+                                    .text_color(theme.text_muted)
+                                    .child(format!("{}-digit barcode", format.length)),
+                            ),
+                    )
+                    .child(
+                        Icon::new(IconName::CircleCheck)
+                            .small()
+                            .text_color(theme.success),
+                    )
             })
             .collect();
-        picker_card(theme).children(rows)
+
+        picker_card(theme).children(rows).child(
+            div()
+                .px(px(10.))
+                .pt(px(4.))
+                .pb(px(6.))
+                .text_size(px(12.))
+                .text_color(theme.text_muted)
+                .child("The bill type is detected from the barcode."),
+        )
     }
 
     fn stage(&self, theme: &Theme, cx_self: &mut Context<Self>) -> Div {
         let target = self.software_label();
-        let (title, helper) = if self.scanning {
+        let scanning = self.scanning(cx_self);
+        let (title, helper) = if scanning {
             (
                 "Listening for barcodes",
                 format!("Each bill is typed into {target} as soon as it's scanned."),
@@ -155,7 +201,7 @@ impl SingleBillPage {
         };
 
         let toggle = cx_self.listener(|this, _, _, cx_self| this.toggle_scanning(cx_self));
-        let button = if self.scanning {
+        let button = if scanning {
             Button::new("scan-toggle")
                 .label("Stop scanning")
                 .icon(IconName::Square)
@@ -177,14 +223,14 @@ impl SingleBillPage {
             .flex_col()
             .items_center()
             .justify_center()
-            .child(barcode(self.scanning, theme))
+            .child(barcode(scanning, theme))
             .child(
                 div()
                     .mt(px(32.))
                     .flex()
                     .items_center()
                     .gap(px(10.))
-                    .child(status_dot(self.scanning, theme))
+                    .child(status_dot(scanning, theme))
                     .child(
                         div()
                             .text_size(px(20.))
@@ -388,67 +434,6 @@ fn status_dot(scanning: bool, theme: &Theme) -> AnyElement {
     }
 }
 
-fn card(theme: &Theme) -> Div {
-    div()
-        .w_full()
-        .rounded(px(8.))
-        .border_1()
-        .border_color(theme.border_subtle)
-        .bg(theme.bg_surface)
-}
-
-fn picker_card(theme: &Theme) -> Div {
-    card(theme).p(px(6.)).flex().flex_col().gap(px(2.))
-}
-
-fn pick_row(
-    id: SharedString,
-    title: SharedString,
-    subtitle: SharedString,
-    selected: bool,
-    theme: &Theme,
-    on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
-) -> Stateful<Div> {
-    let hover_bg = theme.bg_hover;
-
-    div()
-        .id(id)
-        .px(px(10.))
-        .py(px(8.))
-        .rounded(px(6.))
-        .cursor_pointer()
-        .flex()
-        .items_center()
-        .gap(px(12.))
-        .when(selected, |el| el.bg(theme.bg_selected))
-        .when(!selected, |el| el.hover(move |s| s.bg(hover_bg)))
-        .child(
-            div()
-                .flex_1()
-                .min_w_0()
-                .flex()
-                .flex_col()
-                .gap(px(2.))
-                .child(
-                    div()
-                        .text_size(px(14.))
-                        .text_color(theme.text_main)
-                        .when(selected, |el| el.font_weight(FontWeight::MEDIUM))
-                        .child(title),
-                )
-                .child(
-                    div()
-                        .text_size(px(12.))
-                        .text_color(theme.text_muted)
-                        .child(subtitle),
-                ),
-        )
-        .when(selected, |el| {
-            el.child(Icon::new(IconName::Check).small().text_color(theme.accent))
-        })
-        .on_click(on_click)
-}
-
 fn divider(theme: &Theme) -> Div {
     div().h(px(1.)).bg(theme.border_subtle)
 }
@@ -481,18 +466,6 @@ fn section(title: &'static str, body: Div, theme: &Theme) -> Div {
         .child(body)
 }
 
-fn rupees(amount: u32) -> String {
-    let digits = amount.to_string();
-    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
-    for (i, ch) in digits.chars().enumerate() {
-        if i > 0 && (digits.len() - i) % 3 == 0 {
-            out.push(',');
-        }
-        out.push(ch);
-    }
-    format!("Rs. {out}")
-}
-
 impl Render for SingleBillPage {
     fn render(&mut self, window: &mut Window, cx_self: &mut Context<Self>) -> impl IntoElement {
         let theme = *cx_self.global::<Theme>();
@@ -500,7 +473,7 @@ impl Render for SingleBillPage {
         let narrow = window.viewport_size().width < px(NARROW_W);
 
         let software = section("Software", self.software_picker(&theme, cx_self), &theme);
-        let format = section("Bill type", self.format_picker(&theme, cx_self), &theme);
+        let format = section("Recognized bills", self.detected_formats(&theme), &theme);
         let last = section("Last scanned", self.last_scanned(&theme, mono), &theme);
         let session = section("This session", self.session(&theme), &theme);
 
