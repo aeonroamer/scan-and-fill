@@ -9,7 +9,7 @@ use gpui_kit::component::{
 use gpui_kit::prelude::FluentBuilder;
 use gpui_kit::{
     div, ease_in_out, pulsating_between, px, relative, Animation, AnimationExt, AnyElement, App,
-    AppContext, Context, Div, Entity, FontWeight, IntoElement, ParentElement, Render, Rgba,
+    AppContext, Context, Div, Entity, IntoElement, ParentElement, Render, Rgba,
     SharedString, Styled, Subscription, Window,
 };
 use shared::{Bill, Software, SoftwareKind};

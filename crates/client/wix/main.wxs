@@ -91,7 +91,7 @@
 
         <SetProperty Id='ARPINSTALLLOCATION' Value='[APPLICATIONFOLDER]' After='CostFinalize'/>
 
-        <Icon Id='ProductICO' SourceFile='assets\icon.ico'/>
+        <Icon Id='ProductICO' SourceFile='$(sys.SOURCEFILEDIR)..\assets\icon.ico'/>
         <Property Id='ARPPRODUCTICON' Value='ProductICO'/>
 
         <Property Id='WIXUI_INSTALLDIR' Value='APPLICATIONFOLDER'/>

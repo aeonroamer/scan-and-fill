@@ -1,7 +1,10 @@
 use std::time::Duration;
 
 use crate::state::Theme;
-use gpui_kit::component::{Sizable, button::Button};
+use gpui_kit::component::{
+    Sizable,
+    button::{Button, ButtonVariants},
+};
 use gpui_kit::{
     Animation, AnimationExt, App, AppContext, Context, Entity, EventEmitter, FontWeight,
     IntoElement, ParentElement, Render, SharedString, Styled, Window, div, ease_in_out, px,
