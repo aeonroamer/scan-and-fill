@@ -5832,7 +5832,7 @@ dependencies = [
 
 [[package]]
 name = "scanfill"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-channel",
  "chrono",
@@ -6129,7 +6129,7 @@ dependencies = [
 
 [[package]]
 name = "shared"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "chrono",
  "gpui-pre-shared-string",
@@ -7668,7 +7668,7 @@ dependencies = [
 
 [[package]]
 name = "win-ops"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "shared",
  "windows 0.62.2",
