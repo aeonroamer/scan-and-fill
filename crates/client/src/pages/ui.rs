@@ -1,13 +1,79 @@
-use gpui_kit::component::{Icon, IconName, Sizable};
+use std::rc::Rc;
+
+use gpui_kit::component::{
+    Disableable, Icon, IconName, Sizable,
+    button::{Button, ButtonVariants},
+    menu::{DropdownMenu, PopupMenuItem},
+};
 use gpui_kit::prelude::FluentBuilder;
 use gpui_kit::{
     App, ClickEvent, Div, FontWeight, InteractiveElement, ParentElement, SharedString, Stateful,
     StatefulInteractiveElement, Styled, Window, div, px,
 };
 
-use shared::Software;
+use shared::{Software, UTILITIES, utility_label};
 
-use crate::state::{AppSettings, Theme};
+use crate::state::{AppSettings, Paying, Theme};
+
+pub(crate) fn paying_row(
+    id: &'static str,
+    current: Option<Paying>,
+    disabled: bool,
+    theme: &Theme,
+    on_pick: impl Fn(Paying, &mut App) + 'static,
+) -> Div {
+    let on_pick: Rc<dyn Fn(Paying, &mut App)> = Rc::new(on_pick);
+    let label: SharedString = match &current {
+        Some(paying) => format!(
+            "{} · {}",
+            utility_label(&paying.utility).unwrap_or_default(),
+            paying.company
+        )
+        .into(),
+        None => "Choose…".into(),
+    };
+
+    div()
+        .flex()
+        .items_center()
+        .justify_between()
+        .gap(px(8.))
+        .child(
+            div()
+                .text_size(px(13.))
+                .text_color(theme.text_muted)
+                .child("Paying for"),
+        )
+        .child(
+            Button::new(id)
+                .label(label)
+                .icon(IconName::ChevronDown)
+                .outline()
+                .small()
+                .disabled(disabled)
+                .dropdown_menu(move |menu, window, cx| {
+                    UTILITIES.iter().fold(menu, |menu, utility| {
+                        let on_pick = on_pick.clone();
+                        let current = current.clone();
+                        menu.submenu(utility.label, window, cx, move |sub, _, _| {
+                            utility.companies.iter().fold(sub, |sub, company| {
+                                let on_pick = on_pick.clone();
+                                let paying = Paying {
+                                    utility: utility.id.into(),
+                                    company: (*company).into(),
+                                };
+                                let checked = current.as_ref() == Some(&paying);
+                                sub.item(
+                                    PopupMenuItem::new(*company)
+                                        .checked(checked)
+                                        .on_click(move |_, _, cx| on_pick(paying.clone(), cx)),
+                                )
+                            })
+                        })
+                    })
+                }),
+        )
+}
 
 pub(crate) fn default_software(softwares: &[Software], cx: &App) -> Option<SharedString> {
     let chosen = AppSettings::get(cx).software.as_deref();

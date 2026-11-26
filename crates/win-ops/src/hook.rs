@@ -1,5 +1,4 @@
 use std::sync::Mutex;
-/// I credit Claude for this. Its very hard to understand this for me lol! hard (not impossibe)
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::thread::{self, JoinHandle};

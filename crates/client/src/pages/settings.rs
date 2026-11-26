@@ -1,6 +1,6 @@
 use gpui_kit::component::{
     IconName,
-    button::{Button, ButtonVariants},
+    button::Button,
     input::{Input, InputEvent, InputState},
     menu::{DropdownMenu, PopupMenuItem},
     switch::Switch,

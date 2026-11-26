@@ -25,11 +25,11 @@ use gpui_kit::{
 };
 use shared::{Bill, Software, SoftwareKind};
 
-use super::ui::{card, default_software, pick_row, picker_card, rupees};
+use super::ui::{card, default_software, paying_row, pick_row, picker_card, rupees};
 use crate::database::{self, BulkSession};
 use crate::state::{
-    AppSettings, BillList, BillListEvent, Database, Entry, Io, Mode, PushOutcome, Runner, Source,
-    Theme,
+    AppSettings, BillList, BillListEvent, Database, Entry, Io, Mode, Paying, PushOutcome, Runner,
+    RunnerEvent, Source, Theme,
 };
 
 const NOT_RECOGNIZED: &str =
@@ -67,6 +67,9 @@ pub struct BulkBillsPage {
     softwares: Vec<Software>,
     software: Option<SharedString>,
     default_software: Option<SharedString>,
+    batch: usize,
+    paying: Option<Paying>,
+    run_error: Option<SharedString>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -108,6 +111,7 @@ impl BulkBillsPage {
                         this.default_software = default.clone();
                         if !this.runner.read(cx_self).is_running() {
                             this.software = default;
+                            this.batch = this.batch.min(this.max_batch());
                         }
                         cx_self.notify();
                     }
@@ -127,10 +131,26 @@ impl BulkBillsPage {
                 default_software: software.clone(),
                 software,
                 softwares,
+                batch: 1,
+                paying: None,
+                run_error: None,
                 _subscriptions: vec![
                     subscription,
                     settings_changed,
                     cx_self.observe(&runner, |_: &mut Self, _, cx_self| cx_self.notify()),
+                    cx_self.subscribe(&runner, |this: &mut Self, _, event: &RunnerEvent, cx_self| {
+                        match event {
+                            RunnerEvent::Failed(reason) => {
+                                this.run_error = Some(reason.clone().into());
+                                cx_self.notify();
+                            }
+                            RunnerEvent::Cleared if this.run_error.is_some() => {
+                                this.run_error = None;
+                                cx_self.notify();
+                            }
+                            _ => {}
+                        }
+                    }),
                 ],
             };
             page.load(cx_self);
@@ -381,6 +401,7 @@ impl BulkBillsPage {
     }
 
     fn toggle_running(&mut self, cx_self: &mut Context<Self>) {
+        self.run_error = None;
         let runner = self.runner.clone();
         if runner.read(cx_self).is_running() {
             runner.update(cx_self, |runner, cx_self| runner.stop(cx_self));
@@ -390,17 +411,52 @@ impl BulkBillsPage {
         let Some(bills) = self.current_bills() else {
             return;
         };
-        let Some(software) = self
-            .softwares
-            .iter()
-            .find(|software| Some(&software.id) == self.software.as_ref())
-            .cloned()
-        else {
+        let Some(software) = self.selected_software().cloned() else {
             return;
         };
+        let batch = self.batch;
+        let paying = self.paying.clone().filter(|_| software.needs_company());
+        if software.needs_company() && paying.is_none() {
+            return;
+        }
         runner.update(cx_self, |runner, cx_self| {
-            runner.start(Mode::Bulk, software, Some(bills.downgrade()), cx_self)
+            runner.start(Mode::Bulk, software, Some(bills.downgrade()), batch, paying, cx_self)
         });
+    }
+
+    fn selected_software(&self) -> Option<&Software> {
+        self.softwares
+            .iter()
+            .find(|software| Some(&software.id) == self.software.as_ref())
+    }
+
+    fn max_batch(&self) -> usize {
+        self.selected_software()
+            .map_or(1, |software| software.max_batch.max(1))
+    }
+
+    fn change_batch(&mut self, delta: isize, cx_self: &mut Context<Self>) {
+        let batch = self
+            .batch
+            .saturating_add_signed(delta)
+            .clamp(1, self.max_batch());
+        if batch != self.batch {
+            self.batch = batch;
+            cx_self.notify();
+        }
+    }
+
+    fn set_paying(&mut self, paying: Paying, cx_self: &mut Context<Self>) {
+        if self.paying.as_ref() != Some(&paying) {
+            self.paying = Some(paying);
+            cx_self.notify();
+        }
+    }
+
+    fn needs_paying(&self) -> bool {
+        self.selected_software()
+            .is_some_and(|software| software.needs_company())
+            && self.paying.is_none()
     }
 
     fn step_back(&mut self, cx_self: &mut Context<Self>) {
@@ -412,6 +468,7 @@ impl BulkBillsPage {
     fn select_software(&mut self, id: SharedString, cx_self: &mut Context<Self>) {
         if self.software.as_ref() != Some(&id) {
             self.software = Some(id);
+            self.batch = self.batch.min(self.max_batch());
             cx_self.notify();
         }
     }

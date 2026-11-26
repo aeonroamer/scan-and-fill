@@ -1,16 +1,17 @@
 use gpui_kit::{App, Global};
-use surrealdb::{Surreal, engine::local::Db};
 
-pub struct Database(Surreal<Db>);
+use crate::database::Db;
+
+pub struct Database(Db);
 
 impl Global for Database {}
 
 impl Database {
-    pub fn new(db: Surreal<Db>) -> Self {
+    pub fn new(db: Db) -> Self {
         Self(db)
     }
 
-    pub fn get(cx: &App) -> Surreal<Db> {
+    pub fn get(cx: &App) -> Db {
         cx.global::<Self>().0.clone()
     }
 }

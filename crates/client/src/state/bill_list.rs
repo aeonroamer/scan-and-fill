@@ -51,21 +51,23 @@ impl Entry {
     }
 
     pub fn to_stored(&self) -> StoredBill {
-        let (source, format, label, late_fee, original_amount) = match &self.source {
+        let (source, format, label, company, late_fee, original_amount) = match &self.source {
             Source::Scanned(bill) => (
                 SOURCE_SCANNED,
                 Some(bill.format.to_string()),
                 Some(bill.label.to_string()),
+                bill.company.as_ref().map(|company| company.to_string()),
                 bill.late_fee,
                 Some(bill.amount),
             ),
-            Source::Manual => (SOURCE_MANUAL, None, None, false, None),
+            Source::Manual => (SOURCE_MANUAL, None, None, None, false, None),
         };
         StoredBill {
             reference: self.reference.to_string(),
             source: source.into(),
             format,
             label,
+            company,
             late_fee,
             original_amount,
             amount: self.amount,
@@ -80,6 +82,7 @@ impl Entry {
                 format: stored.format.unwrap_or_default().into(),
                 label: stored.label.unwrap_or_default().into(),
                 reference: reference.clone(),
+                company: stored.company.map(Into::into),
                 amount: stored.original_amount.unwrap_or_default(),
                 late_fee: stored.late_fee,
             })

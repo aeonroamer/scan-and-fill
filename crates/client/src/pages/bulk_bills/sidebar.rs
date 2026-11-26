@@ -151,19 +151,27 @@ impl BulkBillsPage {
         let ready = next.is_some();
 
         let running = self.is_running(cx_self);
-        let (title, helper): (SharedString, &str) = if running {
+        let needs_paying = self.needs_paying();
+        let (title, helper): (SharedString, SharedString) = if let Some(error) = &self.run_error {
+            ("Typing stopped".into(), error.clone())
+        } else if running {
             (
                 format!("Typing into {target}").into(),
-                "Bills are typed one by one, starting at the cursor.",
+                "Bills are typed one by one, starting at the cursor.".into(),
             )
+        } else if ready && needs_paying {
+            ("Choose a company".into(), "Pick who you're paying for before typing.".into())
         } else if ready {
-            ("Ready to type".into(), "Start types the bill at the cursor, then moves on.")
+            ("Ready to type".into(), "Start types the bill at the cursor, then moves on.".into())
         } else if count == 0 {
-            ("No bills yet".into(), "Scan or add bills to this session to start typing.")
+            ("No bills yet".into(), "Scan or add bills to this session to start typing.".into())
         } else if paid < count {
-            ("Cursor is on a paid bill".into(), "Move the cursor to an unpaid bill to start typing.")
+            (
+                "Cursor is on a paid bill".into(),
+                "Move the cursor to an unpaid bill to start typing.".into(),
+            )
         } else {
-            ("Nothing left to type".into(), "Every bill in this session is paid.")
+            ("Nothing left to type".into(), "Every bill in this session is paid.".into())
         };
 
         let softwares: Vec<_> = self
@@ -191,6 +199,82 @@ impl BulkBillsPage {
             })
             .collect();
 
+        let hint = self.selected_software().map(|software| {
+            div()
+                .text_size(px(12.))
+                .text_color(theme.text_muted)
+                .child(software.start_hint.clone())
+        });
+
+        let paying_control = self
+            .selected_software()
+            .is_some_and(|software| software.needs_company())
+            .then(|| {
+                let page = cx_self.entity().downgrade();
+                paying_row("bulk-paying", self.paying.clone(), running, theme, move |paying, cx| {
+                    let _ = page.update(cx, |this, cx_self| this.set_paying(paying, cx_self));
+                })
+            });
+
+        let max_batch = self.max_batch();
+        let batch_row = (max_batch > 1).then(|| {
+            div()
+                .flex()
+                .items_center()
+                .justify_between()
+                .child(
+                    div()
+                        .text_size(px(13.))
+                        .text_color(theme.text_muted)
+                        .child("Bills per press"),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(px(4.))
+                        .child(
+                            Button::new("bulk-batch-less")
+                                .icon(IconName::Minus)
+                                .ghost()
+                                .small()
+                                .disabled(running || self.batch <= 1)
+                                .on_click(cx_self.listener(|this, _, _, cx_self| {
+                                    this.change_batch(-1, cx_self)
+                                })),
+                        )
+                        .child(
+                            div()
+                                .min_w(px(28.))
+                                .text_center()
+                                .text_size(px(13.))
+                                .font_weight(FontWeight::MEDIUM)
+                                .text_color(theme.text_main)
+                                .child(self.batch.to_string()),
+                        )
+                        .child(
+                            Button::new("bulk-batch-more")
+                                .icon(IconName::Plus)
+                                .ghost()
+                                .small()
+                                .disabled(running || self.batch >= max_batch)
+                                .on_click(cx_self.listener(|this, _, _, cx_self| {
+                                    this.change_batch(1, cx_self)
+                                })),
+                        )
+                        .child(
+                            Button::new("bulk-batch-max")
+                                .label("Max")
+                                .ghost()
+                                .small()
+                                .disabled(running || self.batch >= max_batch)
+                                .on_click(cx_self.listener(move |this, _, _, cx_self| {
+                                    this.change_batch(max_batch as isize, cx_self)
+                                })),
+                        ),
+                )
+        });
+
         let toggle = cx_self.listener(|this, _, _, cx_self| this.toggle_running(cx_self));
         let start = if running {
             Button::new("bulk-run")
@@ -207,7 +291,7 @@ impl BulkBillsPage {
                 .primary()
                 .large()
                 .w_full()
-                .disabled(!ready)
+                .disabled(!ready || needs_paying)
                 .on_click(toggle)
         };
 
@@ -217,7 +301,9 @@ impl BulkBillsPage {
         } else {
             paid as f32 / count as f32
         };
-        let dot_color = if running {
+        let dot_color = if self.run_error.is_some() {
+            theme.error
+        } else if running {
             theme.accent
         } else if ready {
             theme.text_muted
@@ -288,11 +374,18 @@ impl BulkBillsPage {
                     .child(
                         div()
                             .text_size(px(12.))
-                            .text_color(theme.text_muted)
+                            .text_color(if self.run_error.is_some() {
+                                theme.error
+                            } else {
+                                theme.text_muted
+                            })
                             .child(helper),
                     ),
             )
             .when(!compact, |el| el.child(picker_card(theme).children(softwares)))
+            .children(paying_control)
+            .children(batch_row)
+            .children(hint)
             .child(start)
             .child(
                 div()

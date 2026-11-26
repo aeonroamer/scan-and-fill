@@ -18,6 +18,7 @@ pub struct ScanFill {
     screen: Screen,
 }
 
+const WINDOW_SCALE: f32 = 0.75;
 const MIN_W: f32 = 960.;
 const MIN_H: f32 = 600.;
 
@@ -30,7 +31,7 @@ impl ScanFill {
                 (f32::from(screen.width), f32::from(screen.height))
             })
             .unwrap_or((1280., 800.));
-        let fit = |screen: f32, min: f32| (screen * 0.5).max(min).min(screen * 0.95);
+        let fit = |screen: f32, min: f32| (screen * WINDOW_SCALE).max(min).min(screen * 0.95);
         let window = size(px(fit(screen_w, MIN_W)), px(fit(screen_h, MIN_H)));
         WindowBounds::Windowed(Bounds::centered(None, window, app))
     }

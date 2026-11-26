@@ -10,7 +10,6 @@ edition = "2024"
 [workspace.dependencies]
 shared = { path = "crates/shared" }
 win-ops = { path = "crates/win-ops" }
-surrealdb = { version = "4.0.0", default-features = false }
 tokio = { version = "1.54.1", default-features = false, features = ["rt-multi-thread", "time"] }
 thiserror = "2.0.21"
 tracing = "0.1.44"
