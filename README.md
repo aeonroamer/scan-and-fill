@@ -9,6 +9,12 @@
   A native Windows desktop app written in Rust with GPUI.
 </p>
 
+<p align="center">
+
+[![CI](https://github.com/aeonroamer/scan-and-fill/actions/workflows/ci.yml/badge.svg)](https://github.com/aeonroamer/scan-and-fill/actions/workflows/ci.yml)
+
+</p>
+
 ---
 
 ## The problem
