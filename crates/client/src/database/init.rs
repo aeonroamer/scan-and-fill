@@ -1,29 +1,23 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use directories::ProjectDirs;
-use surrealdb::{
-    Surreal,
-    engine::local::{Db, SurrealKv},
-};
+use redb::Database;
 
-use super::DbError;
-use shared::{DB, NS};
+use super::{Db, DbError};
 
-const FOLDER: &str = if cfg!(debug_assertions) { "db-dev" } else { "db" };
+const FOLDER: &str = if cfg!(debug_assertions) { "store-dev" } else { "store" };
+const FILE: &str = "scanfill.redb";
 
 fn db_path() -> Option<PathBuf> {
     ProjectDirs::from("dev", "AeonLogics", "ScanFill").map(|dirs| dirs.data_local_dir().join(FOLDER))
 }
 
-pub async fn open() -> Result<Surreal<Db>, DbError> {
+pub async fn open() -> Result<Db, DbError> {
     let path = db_path().ok_or(DbError::NoHome)?;
-
-    let db = Surreal::new::<SurrealKv>(path)
-        .await
-        .map_err(DbError::Open)?;
-    db.use_ns(NS).use_db(DB).await.map_err(DbError::Namespace)?;
-
-    Ok(db)
+    std::fs::create_dir_all(&path)?;
+    let db = Database::create(path.join(FILE)).map_err(redb::Error::from)?;
+    Ok(Arc::new(db))
 }
 
 pub fn reset() -> std::io::Result<Option<PathBuf>> {

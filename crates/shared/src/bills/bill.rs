@@ -8,6 +8,7 @@ pub struct Bill {
     pub format: SharedString,
     pub label: SharedString,
     pub reference: SharedString,
+    pub company: Option<SharedString>,
     pub amount: u32,
     pub late_fee: bool,
 }

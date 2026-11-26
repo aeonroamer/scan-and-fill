@@ -8,13 +8,42 @@ use gpui_kit::{
     App, AppContext, Context, Entity, EventEmitter, Global, SharedString, Task, WeakEntity,
 };
 use shared::{Bill, Key, Software, Step};
-use win_ops::{DetectorConfig, ScanEvent, Scanner, Typist, resolve};
+use win_ops::{DetectorConfig, Missing, ScanEvent, Scanner, Typist, resolve};
 
 use super::{AppSettings, BillList, RunState};
 
 const REFERENCE: &str = "reference";
 const AMOUNT: &str = "amount";
+const UTILITY: &str = "utility";
+const COMPANY: &str = "company";
 const CONTACT: &str = "contact";
+
+fn beep(cx: &App) {
+    if AppSettings::get(cx).sound.unwrap_or(true) {
+        win_ops::play_reject();
+    }
+}
+
+fn bill_field(
+    software: &Software,
+    field: &str,
+    reference: &str,
+    amount: Option<u32>,
+    utility: Option<&str>,
+    company: Option<&str>,
+) -> Option<String> {
+    match field {
+        REFERENCE => Some(reference.to_string()),
+        AMOUNT => amount.map(|amount| amount.to_string()),
+        UTILITY => utility
+            .and_then(|utility| software.pick(UTILITY, utility))
+            .map(|keys| keys.to_string()),
+        COMPANY => company
+            .and_then(|company| software.pick(COMPANY, company))
+            .map(|keys| keys.to_string()),
+        _ => None,
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
@@ -28,6 +57,7 @@ pub enum RunnerEvent {
     Rejected(String),
     Failed(String),
     Focus(bool),
+    Cleared,
 }
 
 enum WorkerMessage {
@@ -40,6 +70,8 @@ pub struct Job {
     stop: Arc<AtomicBool>,
     delay: Duration,
     typing: bool,
+    batch: usize,
+    remaining: usize,
     _scanner: Option<Scanner>,
     _task: Option<Task<()>>,
 }
@@ -50,6 +82,13 @@ pub struct Runner {
     bills: Option<WeakEntity<BillList>>,
     focused: bool,
     job: Option<Job>,
+    paying: Option<Paying>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Paying {
+    pub utility: SharedString,
+    pub company: SharedString,
 }
 
 impl EventEmitter<RunnerEvent> for Runner {}
@@ -64,6 +103,7 @@ impl Runner {
             software: None,
             contact: None,
             bills: None,
+            paying: None,
             focused: false,
             job: None,
         });
@@ -103,6 +143,8 @@ impl Runner {
         mode: Mode,
         software: Software,
         bills: Option<WeakEntity<BillList>>,
+        batch: usize,
+        paying: Option<Paying>,
         cx_self: &mut Context<Self>,
     ) {
         if self.job.is_some() {
@@ -120,7 +162,8 @@ impl Runner {
         let (tx, rx) = async_channel::unbounded();
         let worker = Worker {
             mode,
-            steps: software.steps.clone(),
+            software: software.clone(),
+            paying: paying.clone(),
             contact: contact.clone(),
             delay,
             stop: stop.clone(),
@@ -143,7 +186,7 @@ impl Runner {
             while let Ok(message) = rx.recv().await {
                 let _ = this.update(cx, |runner, cx_self| match message {
                     WorkerMessage::Event(event) => runner.receive(event, cx_self),
-                    WorkerMessage::TypeNext => runner.type_next(cx_self),
+                    WorkerMessage::TypeNext => runner.trigger(cx_self),
                 });
             }
         });
@@ -152,12 +195,15 @@ impl Runner {
         self.software = Some(software);
         self.contact = Some(contact.into());
         self.bills = bills;
+        self.paying = paying;
         self.focused = false;
         self.job = Some(Job {
             mode,
             stop,
             delay,
             typing: false,
+            batch: batch.clamp(1, self.software.as_ref().map_or(1, |software| software.max_batch.max(1))),
+            remaining: 0,
             _scanner: Some(scanner),
             _task: Some(task),
         });
@@ -175,6 +221,20 @@ impl Runner {
         cx_self.notify();
     }
 
+    fn trigger(&mut self, cx_self: &mut Context<Self>) {
+        let Some(job) = self.job.as_mut() else {
+            return;
+        };
+        if job.typing {
+            tracing::info!("trigger ignored, still typing");
+            beep(cx_self);
+            return;
+        }
+        job.remaining = job.batch;
+        cx_self.emit(RunnerEvent::Cleared);
+        self.type_next(cx_self);
+    }
+
     fn type_next(&mut self, cx_self: &mut Context<Self>) {
         let (Some(job), Some(software), Some(bills)) = (
             self.job.as_mut(),
@@ -183,7 +243,12 @@ impl Runner {
         ) else {
             return;
         };
-        if job.typing {
+        if job.typing || job.remaining == 0 {
+            return;
+        }
+        if !self.focused {
+            tracing::info!("portal lost focus, batch stopped");
+            job.remaining = 0;
             return;
         }
         let Some(list) = bills.upgrade() else {
@@ -197,6 +262,10 @@ impl Runner {
             tracing::info!("no unpaid bill at the cursor");
             return;
         };
+        let (utility, company) = match &self.paying {
+            Some(paying) => (Some(paying.utility.to_string()), Some(paying.company.to_string())),
+            None => (None, None),
+        };
 
         let contact = self
             .contact
@@ -205,22 +274,37 @@ impl Runner {
             .unwrap_or_default();
         let actions = resolve(
             &software.steps,
-            |field| match field {
-                REFERENCE => Some(reference.clone()),
-                AMOUNT => amount.map(|amount| amount.to_string()),
-                _ => None,
+            |field| {
+                bill_field(
+                    software,
+                    field,
+                    &reference,
+                    amount,
+                    utility.as_deref(),
+                    company.as_deref(),
+                )
             },
             |setting| (setting == CONTACT).then(|| contact.clone()),
         );
         let actions = match actions {
             Ok(actions) => actions,
             Err(missing) => {
-                cx_self.emit(RunnerEvent::Failed(format!("Missing {missing:?}")));
+                let what = match &missing {
+                    Missing::Field(name) | Missing::Setting(name) => name.clone(),
+                };
+                tracing::error!(%reference, %what, "bulk typing stopped, bill is incomplete");
+                job.remaining = 0;
+                beep(cx_self);
+                cx_self.emit(RunnerEvent::Failed(format!(
+                    "Stopped at {reference}: {what} is not set for {}. Stop, choose it in the panel, then start again.",
+                    software.label
+                )));
                 return;
             }
         };
 
         job.typing = true;
+        job.remaining -= 1;
         let stop = job.stop.clone();
         let delay = job.delay;
         cx_self
@@ -244,6 +328,9 @@ impl Runner {
                                 bills.set_paid(index, true, cx_self);
                             }
                         });
+                        runner.type_next(cx_self);
+                    } else if let Some(job) = runner.job.as_mut() {
+                        job.remaining = 0;
                     }
                 });
             })
@@ -257,12 +344,11 @@ impl Runner {
             }
             RunnerEvent::Rejected(raw) => {
                 tracing::warn!(%raw, "barcode not recognized");
-                if AppSettings::get(cx_self).sound.unwrap_or(true) {
-                    win_ops::play_reject();
-                }
+                beep(cx_self);
             }
             RunnerEvent::Failed(reason) => tracing::error!(%reason, "typing failed"),
             RunnerEvent::Focus(focused) => tracing::info!(focused, "portal focus changed"),
+            RunnerEvent::Cleared => {}
         }
         if let RunnerEvent::Focus(focused) = event {
             self.focused = focused;
@@ -274,7 +360,8 @@ impl Runner {
 
 struct Worker {
     mode: Mode,
-    steps: Vec<Step>,
+    software: Software,
+    paying: Option<Paying>,
     contact: String,
     delay: Duration,
     stop: Arc<AtomicBool>,
@@ -306,14 +393,18 @@ impl Worker {
             return;
         };
 
-        let reference = bill.reference.to_string();
-        let amount = bill.amount.to_string();
+        let paying = self.paying.as_ref();
         let actions = resolve(
-            &self.steps,
-            |field| match field {
-                REFERENCE => Some(reference.clone()),
-                AMOUNT => Some(amount.clone()),
-                _ => None,
+            &self.software.steps,
+            |field| {
+                bill_field(
+                    &self.software,
+                    field,
+                    &bill.reference,
+                    Some(bill.amount),
+                    paying.map(|paying| &*paying.utility),
+                    paying.map(|paying| &*paying.company),
+                )
             },
             |setting| (setting == CONTACT).then(|| self.contact.clone()),
         );
@@ -330,6 +421,7 @@ impl Worker {
 
     fn continue_after_reference(&self) {
         let start = self
+            .software
             .steps
             .iter()
             .position(|step| matches!(step, Step::Field(name) if name == REFERENCE))
@@ -337,7 +429,7 @@ impl Worker {
             .unwrap_or(0);
 
         let actions = resolve(
-            &self.steps[start..],
+            &self.software.steps[start..],
             |_| None,
             |setting| (setting == CONTACT).then(|| self.contact.clone()),
         );

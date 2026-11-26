@@ -1,10 +1,10 @@
 use std::time::Duration;
 
-use super::ui::{card, default_software, pick_row, picker_card, rupees};
-use crate::state::{alpha, AppSettings, Mode, Runner, RunnerEvent, Theme};
+use super::ui::{card, default_software, paying_row, pick_row, picker_card, rupees};
+use crate::state::{alpha, AppSettings, Mode, Paying, Runner, RunnerEvent, Theme};
 use gpui_kit::component::{
     button::{Button, ButtonVariants},
-    ActiveTheme, Icon, IconName, Sizable,
+    ActiveTheme, Disableable, Icon, IconName, Sizable,
 };
 use gpui_kit::prelude::FluentBuilder;
 use gpui_kit::{
@@ -43,6 +43,7 @@ pub struct SingleBillPage {
     softwares: Vec<Software>,
     software: Option<SharedString>,
     default_software: Option<SharedString>,
+    paying: Option<Paying>,
 }
 
 impl SingleBillPage {
@@ -65,7 +66,7 @@ impl SingleBillPage {
                             tracing::warn!("unrecognized barcode: {raw}");
                         }
                         RunnerEvent::Failed(reason) => tracing::error!("typing failed: {reason}"),
-                        RunnerEvent::Focus(_) => {}
+                        RunnerEvent::Focus(_) | RunnerEvent::Cleared => {}
                     }
                     cx_self.notify();
                 }),
@@ -89,6 +90,7 @@ impl SingleBillPage {
                 typed: 0,
                 rejected: 0,
                 default_software: software.clone(),
+                paying: None,
                 software,
                 softwares,
             }
@@ -106,17 +108,35 @@ impl SingleBillPage {
             return;
         }
 
-        let Some(software) = self
-            .softwares
-            .iter()
-            .find(|software| Some(&software.id) == self.software.as_ref())
-            .cloned()
-        else {
+        let Some(software) = self.selected_software().cloned() else {
             return;
         };
+        let paying = self.paying.clone().filter(|_| software.needs_company());
+        if software.needs_company() && paying.is_none() {
+            return;
+        }
         runner.update(cx_self, |runner, cx_self| {
-            runner.start(Mode::Single, software, None, cx_self)
+            runner.start(Mode::Single, software, None, 1, paying, cx_self)
         });
+    }
+
+    fn selected_software(&self) -> Option<&Software> {
+        self.softwares
+            .iter()
+            .find(|software| Some(&software.id) == self.software.as_ref())
+    }
+
+    fn needs_paying(&self) -> bool {
+        self.selected_software()
+            .is_some_and(|software| software.needs_company())
+            && self.paying.is_none()
+    }
+
+    fn set_paying(&mut self, paying: Paying, cx_self: &mut Context<Self>) {
+        if self.paying.as_ref() != Some(&paying) {
+            self.paying = Some(paying);
+            cx_self.notify();
+        }
     }
 
     fn select_software(&mut self, id: SharedString, cx_self: &mut Context<Self>) {
@@ -159,7 +179,22 @@ impl SingleBillPage {
                 )
             })
             .collect();
-        picker_card(theme).children(rows)
+        let running = self.runner.read(cx_self).is_running();
+        let paying_control = self
+            .selected_software()
+            .is_some_and(|software| software.needs_company())
+            .then(|| {
+                let page = cx_self.entity().downgrade();
+                paying_row("single-paying", self.paying.clone(), running, theme, move |paying, cx| {
+                    let _ = page.update(cx, |this, cx_self| this.set_paying(paying, cx_self));
+                })
+            });
+        div()
+            .flex()
+            .flex_col()
+            .gap(px(12.))
+            .child(picker_card(theme).children(rows))
+            .children(paying_control)
     }
 
     fn stage(&self, theme: &Theme, cx_self: &mut Context<Self>) -> Div {
@@ -175,6 +210,11 @@ impl SingleBillPage {
             (
                 "Listening for barcodes",
                 format!("Each bill is typed into {target} as soon as it's scanned."),
+            )
+        } else if self.needs_paying() {
+            (
+                "Choose a company",
+                "Pick who you're paying for under Software, then start scanning.".to_string(),
             )
         } else {
             (
@@ -194,6 +234,7 @@ impl SingleBillPage {
                 .label("Start scanning")
                 .icon(IconName::Play)
                 .primary()
+                .disabled(self.needs_paying())
         };
 
         card(theme)

@@ -1,10 +1,14 @@
+use redb::TableDefinition;
+use serde::{Deserialize, Serialize};
 use shared::Trigger;
-use surrealdb::{Error, Surreal, engine::local::Db, types::SurrealValue};
 
-const TABLE: &str = "settings";
+use super::store::{self, Table};
+use super::{Db, DbError};
+
+const TABLE: Table = TableDefinition::new("settings");
 const KEY: &str = "app";
 
-#[derive(Clone, Debug, Default, SurrealValue)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Settings {
     pub contact: Option<String>,
     pub software: Option<String>,
@@ -36,12 +40,14 @@ impl Settings {
     }
 }
 
-pub async fn load_settings(db: &Surreal<Db>) -> Result<Settings, Error> {
-    let settings: Option<Settings> = db.select((TABLE, KEY)).await?;
-    Ok(settings.unwrap_or_default())
+pub async fn load_settings(db: &Db) -> Result<Settings, DbError> {
+    match store::get(db, TABLE, KEY)? {
+        Some(json) => Ok(serde_json::from_str(&json)?),
+        None => Ok(Settings::default()),
+    }
 }
 
-pub async fn save_settings(db: &Surreal<Db>, settings: Settings) -> Result<(), Error> {
-    let _: Option<Settings> = db.upsert((TABLE, KEY)).content(settings).await?;
+pub async fn save_settings(db: &Db, settings: Settings) -> Result<(), DbError> {
+    store::put(db, TABLE, KEY, &serde_json::to_string(&settings)?)?;
     Ok(())
 }

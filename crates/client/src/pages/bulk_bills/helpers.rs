@@ -28,6 +28,7 @@ pub(super) fn sample_entries() -> Option<Vec<Entry>> {
                         format: "electricity".into(),
                         label: "Electricity".into(),
                         reference: format!("0412778{:07}", 1_229_000 + i * 113).into(),
+                        company: Some("GEPCO".into()),
                         amount: 1_200 + (i * 937) % 18_000,
                         late_fee: i % 5 == 3,
                     })

@@ -8,7 +8,31 @@ use super::Bill;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LateRule {
     pub after: Range<usize>,
-    pub amount: Range<usize>,
+    pub amount: Option<Range<usize>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CompanyRule {
+    Fixed(SharedString),
+    ByCode {
+        at: Range<usize>,
+        codes: Vec<(SharedString, SharedString)>,
+    },
+}
+
+impl CompanyRule {
+    pub fn find(&self, reference: &str) -> Option<SharedString> {
+        match self {
+            Self::Fixed(name) => Some(name.clone()),
+            Self::ByCode { at, codes } => {
+                let code = reference.get(at.clone())?;
+                codes
+                    .iter()
+                    .find(|(candidate, _)| &**candidate == code)
+                    .map(|(_, name)| name.clone())
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -17,6 +41,7 @@ pub struct BillFormat {
     pub label: SharedString,
     pub length: usize,
     pub reference: Range<usize>,
+    pub company: CompanyRule,
     pub amount: Range<usize>,
     pub date_format: SharedString,
     pub late: Vec<LateRule>,
@@ -24,7 +49,7 @@ pub struct BillFormat {
 
 impl BillFormat {
     pub fn all() -> Vec<Self> {
-        vec![Self::electricity()]
+        vec![Self::electricity(), Self::gas()]
     }
 
     pub fn find(id: &str) -> Option<Self> {
@@ -37,18 +62,52 @@ impl BillFormat {
             label: "Electricity".into(),
             length: 60,
             reference: 1..15,
+            company: CompanyRule::ByCode {
+                at: 2..4,
+                codes: [
+                    ("11", "LESCO"),
+                    ("12", "GEPCO"),
+                    ("13", "FESCO"),
+                    ("14", "IESCO"),
+                    ("15", "MEPCO"),
+                    ("26", "PESCO"),
+                    ("37", "HESCO"),
+                    ("38", "SEPCO"),
+                    ("48", "QESCO"),
+                    ("59", "TESCO"),
+                ]
+                .into_iter()
+                .map(|(code, name)| (code.into(), name.into()))
+                .collect(),
+            },
             amount: 26..34,
             date_format: "%d%m%y".into(),
             late: vec![
                 LateRule {
                     after: 43..49,
-                    amount: 35..43,
+                    amount: Some(35..43),
                 },
                 LateRule {
                     after: 19..25,
-                    amount: 50..58,
+                    amount: Some(50..58),
                 },
             ],
+        }
+    }
+
+    pub fn gas() -> Self {
+        Self {
+            id: "gas".into(),
+            label: "Gas".into(),
+            length: 50,
+            reference: 5..16,
+            company: CompanyRule::Fixed("SNGPL".into()),
+            amount: 32..42,
+            date_format: "%d%m%y".into(),
+            late: vec![LateRule {
+                after: 26..32,
+                amount: None,
+            }],
         }
     }
 
@@ -72,13 +131,16 @@ impl BillFormat {
             .find(|(_, date)| *date < today)
             .map(|(rule, _)| rule);
 
-        let amount_range = late.map_or(&self.amount, |rule| &rule.amount);
+        let amount_range = late
+            .and_then(|rule| rule.amount.as_ref())
+            .unwrap_or(&self.amount);
         let amount = raw.get(amount_range.clone())?.parse().ok()?;
 
         Some(Bill {
             format: self.id.clone(),
             label: self.label.clone(),
             reference: reference.to_string().into(),
+            company: self.company.find(reference),
             amount,
             late_fee: late.is_some(),
         })
@@ -153,6 +215,7 @@ mod tests {
 
         let on_time = format.parse(code, date(2026, 11, 24)).unwrap();
         assert_eq!(on_time.reference, "04154374153178");
+        assert_eq!(on_time.company.as_deref(), Some("MEPCO"));
         assert_eq!(on_time.amount, 2130);
         assert!(!on_time.late_fee);
 
@@ -163,6 +226,24 @@ mod tests {
         let after_last = format.parse(code, date(2026, 12, 1)).unwrap();
         assert_eq!(after_last.amount, 2283);
         assert!(after_last.late_fee);
+    }
+
+    #[test]
+    fn real_gas_barcode() {
+        let code = "03000523323561130102600000021226000000134000013003";
+        let format = BillFormat::gas();
+
+        let on_time = format.parse(code, date(2026, 12, 2)).unwrap();
+        assert_eq!(on_time.reference, "52332356113");
+        assert_eq!(on_time.company.as_deref(), Some("SNGPL"));
+        assert_eq!(on_time.amount, 1340);
+        assert!(!on_time.late_fee);
+
+        let late = format.parse(code, date(2026, 12, 3)).unwrap();
+        assert_eq!(late.amount, 1340);
+        assert!(late.late_fee);
+
+        assert_eq!(Bill::parse(code, date(2026, 12, 1)).unwrap().format, "gas");
     }
 
     #[test]
