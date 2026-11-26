@@ -420,17 +420,27 @@ impl Worker {
     }
 
     fn continue_after_reference(&self) {
-        let start = self
+        let steps: Vec<Step> = self
             .software
             .steps
             .iter()
-            .position(|step| matches!(step, Step::Field(name) if name == REFERENCE))
-            .map(|index| index + 1)
-            .unwrap_or(0);
+            .filter(|step| !matches!(step, Step::Field(name) if name == REFERENCE))
+            .cloned()
+            .collect();
 
+        let paying = self.paying.as_ref();
         let actions = resolve(
-            &self.software.steps[start..],
-            |_| None,
+            &steps,
+            |field| {
+                bill_field(
+                    &self.software,
+                    field,
+                    "",
+                    None,
+                    paying.map(|paying| &*paying.utility),
+                    paying.map(|paying| &*paying.company),
+                )
+            },
             |setting| (setting == CONTACT).then(|| self.contact.clone()),
         );
 

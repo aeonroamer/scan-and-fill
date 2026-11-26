@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use gpui_kit::component::{
     Disableable, Icon, IconName, Sizable,
-    button::{Button, ButtonVariants},
+    button::Button,
     menu::{DropdownMenu, PopupMenuItem},
 };
 use gpui_kit::prelude::FluentBuilder;

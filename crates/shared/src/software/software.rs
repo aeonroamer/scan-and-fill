@@ -69,6 +69,9 @@ impl Software {
             steps: vec![
                 Step::Combo(vec![Key::Shift, Key::Tab]),
                 Step::Combo(vec![Key::Shift, Key::Tab]),
+                Step::Combo(vec![Key::Shift, Key::Tab]),
+                Step::Key(Key::Space),
+                Step::Key(Key::Tab),
                 Step::Key(Key::Home),
                 Step::Field("utility".into()),
                 Step::Wait(Duration::from_millis(250)),

@@ -23,24 +23,33 @@ const MIN_W: f32 = 960.;
 const MIN_H: f32 = 600.;
 
 impl ScanFill {
-    pub fn bounds(app: &mut App) -> WindowBounds {
-        let (screen_w, screen_h) = app
-            .primary_display()
+    fn screen(app: &App) -> (f32, f32) {
+        app.primary_display()
             .map(|display| {
                 let screen = display.bounds().size;
                 (f32::from(screen.width), f32::from(screen.height))
             })
-            .unwrap_or((1280., 800.));
-        let fit = |screen: f32, min: f32| (screen * WINDOW_SCALE).max(min).min(screen * 0.95);
-        let window = size(px(fit(screen_w, MIN_W)), px(fit(screen_h, MIN_H)));
+            .unwrap_or((1280., 800.))
+    }
+
+    fn min_size((screen_w, screen_h): (f32, f32)) -> (f32, f32) {
+        (MIN_W.min(screen_w * 0.8), MIN_H.min(screen_h * 0.7))
+    }
+
+    pub fn bounds(app: &mut App) -> WindowBounds {
+        let screen = Self::screen(app);
+        let (min_w, min_h) = Self::min_size(screen);
+        let fit = |screen: f32, min: f32| (screen * WINDOW_SCALE).max(min).min(screen * 0.9);
+        let window = size(px(fit(screen.0, min_w)), px(fit(screen.1, min_h)));
         WindowBounds::Windowed(Bounds::centered(None, window, app))
     }
 
     pub fn window_options(app: &mut App) -> WindowOptions {
         let win_size = Self::bounds(app);
+        let (min_w, min_h) = Self::min_size(Self::screen(app));
         WindowOptions {
             window_bounds: Some(win_size),
-            window_min_size: Some(size(px(MIN_W), px(MIN_H))),
+            window_min_size: Some(size(px(min_w), px(min_h))),
             titlebar: Some(TitlebarOptions {
                 title: Some(SharedString::new("Scan & Fill")),
                 ..Default::default()
